@@ -2,7 +2,7 @@ import { Composer, Markup } from "telegraf"
 import { prisma } from "../db/prisma.js"
 import { scheduled, getScheduled } from "../scheduler/index.js"
 import { logger } from "../logger/index.js"
-import { getAnime } from "anilist-service"
+import { getAnime } from "../anilist-service/index.js"
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime.js'
 
@@ -49,7 +49,7 @@ scheduler.command('tping', async ctx => {
 
 scheduler.action(/cancel:/i, async ctx => {
     await ctx.answerCbQuery().catch(e => logger.error(e))
-    const jobId = ctx.callbackQuery.data?.replace('cancel:', '') ?? ''
+    const jobId = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data.replace('cancel:', '') : ''
     const job = getScheduled(jobId)
     // logger.info(job)
     if (job) {
@@ -72,7 +72,7 @@ scheduler.action(/cancel:/i, async ctx => {
 
 scheduler.action(/check_date:/i, async ctx => {
     await ctx.answerCbQuery().catch(e => logger.error(e))
-    if (ctx.callbackQuery.data) {
+    if ('data' in ctx.callbackQuery) {
         const date = ctx.callbackQuery.data.replace('check_date:', '')
         const text = /^\d+$/.test(date)
             ? `This job should run at ${dayjs(Number(date))} <i>(${dayjs(Number(date)).fromNow()})</i>`
@@ -83,7 +83,7 @@ scheduler.action(/check_date:/i, async ctx => {
 })
 
 scheduler.action(/a_scheduler:/i, async ctx => {
-    if (ctx.callbackQuery.data) {
+    if ('data' in ctx.callbackQuery) {
         const [animeId, date, userId] = ctx.callbackQuery.data.replace('a_scheduler:', '').split(':')
         if (animeId && userId && date) {
             // check if it's the right user

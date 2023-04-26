@@ -10,7 +10,7 @@ import { getAnime } from "anilist-service"
 const actions = new Composer()
 
 actions.action(/animeInfo_\d+_\d+(_\w+)?/i, async ctx => {
-    if (ctx.callbackQuery.data) {
+    if ('data' in ctx.callbackQuery) {
         const [animeId, userId, onlyAiring] = ctx.callbackQuery.data.replace(/animeInfo_/i, '').split('_')
 
         if (animeId && userId) {
@@ -68,7 +68,7 @@ actions.action(/animeInfo_\d+_\d+(_\w+)?/i, async ctx => {
 })
 
 actions.action(/(season|episode)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
-    if (ctx.callbackQuery.data) {
+    if ('data' in ctx.callbackQuery) {
         const [animeId, userId, onlyAiring] = ctx.callbackQuery.data.replace(/(season|episode)(Minus|Plus)_/i, '').split('_')
         const isSeason = /season(Minus|Plus)_/i.test(ctx.callbackQuery.data ?? '')
         const isMinus = /(season|episode)Minus_/i.test(ctx.callbackQuery.data ?? '')
@@ -136,14 +136,14 @@ actions.action(/(season|episode)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
 })
 
 actions.action(/(season|episode)Alert/i, ctx => {
-    const type = /season/i.test(ctx.callbackQuery.data ?? '') ? 'season' : 'episode'
+    const type = /season/i.test('data' in ctx.callbackQuery ? ctx.callbackQuery.data : '') ? 'season' : 'episode'
     ctx
         .answerCbQuery(`Use the ➖ and ➕ buttons to modify ${type}`, { show_alert: true })
         .catch(e => logger.error(e))
 })
 
 actions.action(/toggleOnAir_\d+_\d+_(on|off)(_\w+)?/i, async ctx => {
-    if (ctx.callbackQuery.data) {
+    if ('data' in ctx.callbackQuery) {
         const [animeId, userId, value, onlyAiring] = ctx.callbackQuery.data.replace(/toggleOnAir_/i, '').split('_')
         if (animeId && userId) {
             // check if it's the right user
@@ -203,7 +203,7 @@ actions.action(/toggleOnAir_\d+_\d+_(on|off)(_\w+)?/i, async ctx => {
 
 actions.action(/txt_\d+/, async ctx => {
     await ctx.answerCbQuery().catch(e => logger.error(e))
-    const userId = ctx.callbackQuery.data?.replace(/txt_/i, '')
+    const userId = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data?.replace(/txt_/i, '') : '123'
     const fileName = `${userId}.txt`
 
     if (userId !== ctx.callbackQuery.from.id.toString()) {
@@ -227,7 +227,7 @@ actions.action(/txt_\d+/, async ctx => {
 })
 
 actions.action(/myanime_\d+_\d+/i, async ctx => {
-    if (ctx.callbackQuery.data) {
+    if ('data' in ctx.callbackQuery) {
         const [page, userId] = ctx.callbackQuery.data.replace(/myanime_/i, '').split('_')
         if (page && userId) {
             // check if it's the right user
@@ -269,7 +269,7 @@ actions.action(/myanime_\d+_\d+/i, async ctx => {
 })
 
 actions.action(/airing_\d+_\d+/i, async ctx => {
-    if (ctx.callbackQuery.data) {
+    if ('data' in ctx.callbackQuery) {
         const [page, userId] = ctx.callbackQuery.data.replace(/airing_/i, '').split('_')
         if (page && userId) {
             // check if it's the right user
@@ -308,7 +308,7 @@ actions.action(/airing_\d+_\d+/i, async ctx => {
 })
 
 actions.action(/Local_\d+_\d+_.+/i, async ctx => {
-    if (ctx.callbackQuery.data) {
+    if ('data' in ctx.callbackQuery) {
         const [page, userId, query] = ctx.callbackQuery.data.replace(/Local_/i, '').split('_')
         if (page && userId && query) {
             // check if it's the right user
@@ -354,7 +354,7 @@ actions.action(/Local_\d+_\d+_.+/i, async ctx => {
 
 // afm = add from menu
 actions.action(/afm_\d+_\d+_\d+_\d+/i, async ctx => {
-    if (ctx.callbackQuery.data) {
+    if ('data' in ctx.callbackQuery) {
         const [season, episode, user, animeId] = ctx.callbackQuery.data.replace(/afm_/i, '').split('_')
         try {
             // check if it's the right user
@@ -406,7 +406,7 @@ actions.action(/afm_\d+_\d+_\d+_\d+/i, async ctx => {
 
 actions.action(/deleteAnime_/, async ctx => {
     try {
-        if (ctx.callbackQuery.data && !ctx.callbackQuery.inline_message_id) {
+        if ('data' in ctx.callbackQuery && !ctx.callbackQuery.inline_message_id) {
             const [animeId, userId] = ctx.callbackQuery.data.replace(/deleteAnime_/i, '').split('_')
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
