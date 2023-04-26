@@ -21,7 +21,6 @@
   "license": "ISC",
   "dependencies": {
     "@prisma/client": "^4.3.1",
-    "anilist-service": "workspace:*",
     "axios": "^1.1.2",
     "dayjs": "^1.11.6",
     "dotenv": "^10.0.0",
