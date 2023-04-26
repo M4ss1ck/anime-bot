@@ -1,0 +1,35 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id     String  @id
+  animes Anime[]
+}
+
+model Anime {
+  id      Int      @id @default(autoincrement())
+  name    String
+  season  Int
+  episode Int
+  onAir   Boolean? @default(false)
+  note    String?
+  userId  String
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([name, userId])
+}
+
+model Job {
+  id   String @id
+  date String
+  text String
+}
