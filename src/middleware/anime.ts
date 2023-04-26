@@ -203,7 +203,7 @@ anime.action(/CharPage\d+-/i, async (ctx) => {
 })
 
 anime.action(/getCharacter/, async (ctx) => {
-    const characterId = parseInt(ctx.callbackQuery.data?.replace('getCharacter', '') ?? '')
+    const characterId = parseInt('data' in ctx.callbackQuery ? ctx.callbackQuery.data?.replace('getCharacter', '') : '')
     if (!isNaN(characterId)) {
         // buscar en AniList
         try {

@@ -5,7 +5,7 @@ import { logger } from "../logger/index.js"
 import * as fs from 'fs/promises'
 
 import { padTo2Digits } from "../utils/index.js"
-import { getAnime } from "anilist-service"
+import { getAnime } from "../anilist-service/index.js"
 
 const actions = new Composer()
 
