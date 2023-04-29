@@ -293,7 +293,7 @@ actions.action(/airing_\d+_\d+/i, async ctx => {
 
             const text = `<b>Anime stored for you:</b>\n\n${animelist}`
 
-            const buttons = animes.map(anime => [Markup.button.callback(`"${anime.name}"`, `animeInfo_${anime.id}_${userId}_airing`)])
+            const buttons = animes.slice(0, 10).map(anime => [Markup.button.callback(`"${anime.name}"`, `animeInfo_${anime.id}_${userId}_airing`)])
 
             buttons.push([
                 Markup.button.callback('⏮', `airing_${parseInt(page) - 1}_${userId}`, parseInt(page) < 2),
