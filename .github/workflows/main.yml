@@ -43,3 +43,4 @@ jobs:
             git checkout .
             git pull
             npm run build
+            echo $PATH
