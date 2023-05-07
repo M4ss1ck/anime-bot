@@ -41,6 +41,9 @@ jobs:
           script: |
             cd /bots/anime-bot
             git checkout .
-            git pull
+            git pull 
+            nvm -v
+            node -v
+            npm -v
+            nvm use 18
             npm run build
-            echo $PATH
