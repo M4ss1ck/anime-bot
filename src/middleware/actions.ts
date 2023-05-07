@@ -291,7 +291,7 @@ actions.action(/airing_\d+_\d+/i, async ctx => {
 
             const animelist = animes.slice(0, 10).map(anime => `<i>${anime.name}</i> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
 
-            const text = `<b>Anime stored for you:</b>\n\n${animelist}`
+            const text = `<b>Anime marked as 'On Air' stored for you:</b>\n\n${animelist}`
 
             const buttons = animes.slice(0, 10).map(anime => [Markup.button.callback(`"${anime.name}"`, `animeInfo_${anime.id}_${userId}_airing`)])
 
