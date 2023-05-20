@@ -26,6 +26,21 @@ export type AnimeFull = {
     }
 } & Anime
 
+export type NovelFull = {
+    description: string
+    coverImage: {
+        large: string
+        medium: string
+    }
+    bannerImage: string
+    status: string
+    averageScore: number
+    chapters: number
+    volumes: number
+    format: string
+    source: string
+} & Anime
+
 export type Character = {
     id: number
     name: {
@@ -64,8 +79,19 @@ export type AnimePage = {
     }
 }
 
+export type NovelPage = {
+    Page: {
+        pageInfo: PageInfo
+        media: Anime[]
+    }
+}
+
 export type SpecificAnime = {
     Media: AnimeFull
+}
+
+export type SpecificNovel = {
+    Media: NovelFull
 }
 
 export type CharacterPage = {

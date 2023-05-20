@@ -1,6 +1,7 @@
 import { Telegraf } from 'telegraf'
 import { logger } from './logger/index.js'
 import anime from './middleware/anime.js'
+import novel from './middleware/novels.js'
 import commands from './middleware/commands.js'
 // import users from './middleware/createUsers.js'
 import actions from './middleware/actions.js'
@@ -15,6 +16,7 @@ bot
     // .use(users)
     .use(admin)
     .use(anime)
+    .use(novel)
     .use(commands)
     .use(actions)
     .use(inline)

@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-import type { SpecificCharacter, AnimePage, SpecificAnime, CharacterPage } from './types/index.js'
+import type { SpecificCharacter, AnimePage, SpecificAnime, CharacterPage, NovelPage, SpecificNovel } from './types/index.js'
 
 export const ANILIST_URL = 'https://graphql.anilist.co'
 
@@ -51,6 +51,38 @@ async function getAnimes(search: string, page = 1) {
   return animes
 }
 
+async function getNovels(search: string, page = 1) {
+  const query = `
+            query ($page: Int, $perPage: Int, $search: String) {
+                Page(page: $page, perPage: $perPage) {
+                  pageInfo {
+                      total
+                      perPage
+                  }
+                  media(search: $search, format: NOVEL, sort: FAVOURITES_DESC) {
+                      id
+                      title {
+                        romaji
+                        english
+                        native
+                      }
+                      type
+                      genres
+                  }
+                }
+            }
+   `
+
+  const variables = {
+    search,
+    page,
+    perPage: 5,
+  }
+
+  const novels: NovelPage = await genericQuery(query, variables)
+  return novels
+}
+
 async function getAnime(id: number) {
   const query = `
         query ($id: Int) { # Define which variables will be used in the query (id)
@@ -84,6 +116,41 @@ async function getAnime(id: number) {
 
   const anime: SpecificAnime = await genericQuery(query, variables)
   return anime
+}
+
+async function getNovel(id: number) {
+  const query = `
+        query ($id: Int) { # Define which variables will be used in the query (id)
+            Media (id: $id, format: NOVEL) {
+              id
+              title {
+                  romaji
+                  english
+                  native
+              }
+              description
+              coverImage {
+                  medium
+                  large
+              }
+              bannerImage
+              status
+              genres
+              averageScore
+              chapters
+              volumes
+              type
+              format
+              source
+            }
+        }
+    `
+  const variables = {
+    id,
+  }
+
+  const novel: SpecificNovel = await genericQuery(query, variables)
+  return novel
 }
 
 async function getCharacters(search: string, page = 1) {
@@ -216,4 +283,4 @@ async function getCharacter(id: number) {
   return character
 }
 
-export { genericQuery, getAnime, getAnimes, getCharacter, getCharacters, getIsBirthdayCharacters }
+export { genericQuery, getAnime, getAnimes, getCharacter, getCharacters, getIsBirthdayCharacters, getNovels, getNovel }

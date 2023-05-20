@@ -85,6 +85,7 @@ anime.action(/getAnime/, async (ctx) => {
             if (media) {
                 const caption = `<b>${media.title.romaji ?? 'Title'}</b> (${media.id})
 <i>${media.title.english ?? ''}</i>
+Genres: ${media.genres ? media.genres.join(', ') : 'n/a'}
 Hashtag: ${media.hashtag ?? 'n/a'}
 Year: ${media.seasonYear ?? 'n/a'}  Episodes: ${media.episodes ?? 'n/a'}
 ${media.nextAiringEpisode ? 'Next airing episode: ' + new Date(Math.floor(media.nextAiringEpisode.airingAt * 1000)).toLocaleString('en-US') + ' <i>(in ' + convertMsToRelativeTime(media.nextAiringEpisode.airingAt * 1000 - Date.now()) + ')</i> ' : '<i>no airing info available</i>'}  
