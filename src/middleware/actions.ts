@@ -243,7 +243,10 @@ actions.action(/myanime_\d+_\d+/i, async ctx => {
                     userId: userId
                 },
                 take: 11,
-                skip: skip
+                skip: skip,
+                orderBy: {
+                    id: 'desc'
+                }
             })
 
             const animelist = animes.slice(0, 10).map(anime => `<i>${anime.name}</i> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
@@ -286,7 +289,10 @@ actions.action(/airing_\d+_\d+/i, async ctx => {
                     onAir: true
                 },
                 take: 11,
-                skip: skip
+                skip: skip,
+                orderBy: {
+                    id: 'desc'
+                }
             })
 
             const animelist = animes.slice(0, 10).map(anime => `<i>${anime.name}</i> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
@@ -297,7 +303,7 @@ actions.action(/airing_\d+_\d+/i, async ctx => {
 
             buttons.push([
                 Markup.button.callback('⏮', `airing_${parseInt(page) - 1}_${userId}`, parseInt(page) < 2),
-                Markup.button.callback('⏭', `airing_${parseInt(page) + 1}_${userId}`, animes.length <= 10)
+                Markup.button.callback('⏭', `airing_${parseInt(page) + 1}_${userId}`, animes.length < 11)
             ])
 
             const keyboard = Markup.inlineKeyboard(buttons)
@@ -326,8 +332,11 @@ actions.action(/Local_\d+_\d+_.+/i, async ctx => {
                         contains: query
                     },
                 },
-                take: 10,
-                skip: skip
+                take: 11,
+                skip: skip,
+                orderBy: {
+                    id: 'desc'
+                }
             })
 
             const animelist = animes.map(anime => `<i>${anime.name}</i> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
@@ -338,7 +347,7 @@ actions.action(/Local_\d+_\d+_.+/i, async ctx => {
 
             buttons.push([
                 Markup.button.callback('⏮', `myanime_${parseInt(page) - 1}_${userId}`, parseInt(page) < 2),
-                Markup.button.callback('⏭', `myanime_${parseInt(page) + 1}_${userId}`, animes.length < 10)
+                Markup.button.callback('⏭', `myanime_${parseInt(page) + 1}_${userId}`, animes.length < 11)
             ])
 
             buttons.push([

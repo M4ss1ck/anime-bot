@@ -24,7 +24,10 @@ commands.command(['myanime', 'myanimes'], async (ctx) => {
         where: {
             userId: ctx.from.id.toString()
         },
-        take: 11
+        take: 11,
+        orderBy: {
+            id: 'desc'
+        }
     })
 
     if (animes.length > 0) {
@@ -57,7 +60,10 @@ commands.command(['onair', 'airing', 't'], async (ctx) => {
             userId: ctx.from.id.toString(),
             onAir: true
         },
-        take: 11
+        take: 11,
+        orderBy: {
+            id: 'desc'
+        }
     })
 
     if (animes.length > 0) {
