@@ -159,3 +159,9 @@ scheduler.command(['myjobs', 'myreminders'], async ctx => {
 
     ctx.replyWithHTML(text, keyboard)
 })
+
+scheduler.command('convert', async ctx => {
+    const date = ctx.message.text.replace(/^\/convert(@\w+)?\s/, '')
+    const text = `<b>${date}</b>\nDate: ${dayjs(date)}\nMilliseconds: ${dayjs(date).valueOf()}`
+    ctx.replyWithHTML(text).catch(logger.error)
+})
