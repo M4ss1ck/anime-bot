@@ -88,9 +88,9 @@ anime.action(/getAnime/, async (ctx) => {
 Genres: ${media.genres ? media.genres.join(', ') : 'n/a'}
 Hashtag: ${media.hashtag ?? 'n/a'}
 Year: ${media.seasonYear ?? 'n/a'}  Episodes: ${media.episodes ?? 'n/a'}
-${media.nextAiringEpisode ? 'Next airing episode: ' + new Date(Math.floor(media.nextAiringEpisode.airingAt * 1000)).toLocaleString('en-US') + ' <i>(in ' + convertMsToRelativeTime(media.nextAiringEpisode.airingAt * 1000 - Date.now()) + ')</i> ' : '<i>no airing info available</i>'}  
-      
-<i>${media.description.replace(/<(\/)?\w+((\s)?\/)?>/g, '') ?? 'description n/a'}`
+${media.nextAiringEpisode ? 'Next airing episode: ' + new Date(Math.floor(media.nextAiringEpisode.airingAt * 1000)).toLocaleString('en-US') + ' <i>(in ' + convertMsToRelativeTime(media.nextAiringEpisode.airingAt * 1000 - Date.now()) + ')</i> ' : '<i>no airing info available</i>'}
+
+<i>${media.description?.replace(/<(\/)?\w+((\s)?\/)?>/g, '') ?? 'description n/a'}`
 
                 const cover = media.coverImage.large
 
@@ -214,7 +214,7 @@ anime.action(/getCharacter/, async (ctx) => {
                 const caption = `<a href="${character.siteUrl}">${character.name.full ?? 'Nombre'}</a> (${character.id})
       Age: ${character.age ?? 'n/a'}  Gender: ${character.gender ?? 'n/a'}
       
-      <i>${character.description.replace(/<br>/g, '') ?? 'description n/a'}`
+      <i>${character.description?.replace(/<(\/)?\w+((\s)?\/)?>/g, '') ?? 'description n/a'}`
 
                 const cover = character.image.large
 

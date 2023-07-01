@@ -88,7 +88,7 @@ Score: ${media.averageScore ?? 'n/a'}
 Status: ${media.status ?? 'n/a'}
 Source: ${media.source ?? 'n/a'}
       
-<i>${media.description.replace(/<(\/)?\w+((\s)?\/)?>/g, '') ?? 'description n/a'}`
+<i>${media.description?.replace(/<(\/)?\w+((\s)?\/)?>/g, '') ?? 'description n/a'}`
 
                 const cover = media.coverImage.large
 
