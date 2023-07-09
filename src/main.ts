@@ -26,21 +26,24 @@ const commandList = await bot.telegram
     .getMyCommands()
     .catch((e) => logger.error(e));
 
-const latestCommand = 'myjobs'
+const latestCommand = 'mynovels'
 if (commandList && !commandList.some((command) => command.command === latestCommand)) {
     bot.telegram.setMyCommands([
-        { command: "myanime", description: "Show your stored anime" },
+        {
+            command: "myanime",
+            description: "Show your stored anime."
+        },
         {
             command: "save",
-            description: "Add new anime to database",
+            description: "Add new anime to database.",
         },
         {
             command: "anime",
-            description: "Search anime in AniList",
+            description: "Search anime in AniList.",
         },
         {
             command: "character",
-            description: "Search character in AniList",
+            description: "Search character in AniList.",
         },
         {
             command: "animebd",
@@ -48,7 +51,7 @@ if (commandList && !commandList.some((command) => command.command === latestComm
         },
         {
             command: "help",
-            description: "Get help"
+            description: "Get help."
         },
         {
             command: "myjobs",
@@ -62,6 +65,18 @@ if (commandList && !commandList.some((command) => command.command === latestComm
             command: "import",
             description: "Import a list with your anime info."
         },
+        {
+            command: "mynovels",
+            description: "Show your stored novels."
+        },
+        {
+            command: "releasing",
+            description: "Show the list with your stored novels that are not finished yet."
+        },
+        {
+            command: "novel",
+            description: "Search novel in AniList."
+        }
     ]);
 } else {
     logger.info("No need to update commands");
