@@ -94,10 +94,15 @@ Source: ${media.source ?? 'n/a'}
 
                 const cover = media.coverImage.large
 
+                const addAction = `nfm_${ctx.from?.id}_${novelId}`.slice(0, 63)
+                const buttons = [[Markup.button.callback('Add to my list', addAction)]]
+                const keyboard = Markup.inlineKeyboard(buttons)
+
                 !ctx.callbackQuery.inline_message_id
                     ? ctx.replyWithPhoto(cover, {
                         parse_mode: 'HTML',
                         caption: `${caption.slice(0, 1020)}</i>`,
+                        ...keyboard,
                     }).catch(() => ctx.reply('Parsing error. Contact bot owner.'))
                     : ctx.editMessageText(`${caption.slice(0, 4090)}</i>`, { parse_mode: "HTML" }).catch(() => ctx.reply('Parsing error. Contact bot owner.'))
             }
@@ -647,6 +652,57 @@ novel.action(/deleteNovel_/, async ctx => {
         }
     } catch (error) {
         logger.error(error)
+    }
+})
+
+// nfm = novel from menu
+novel.action(/nfm_\d+_\d+/i, async ctx => {
+    if ('data' in ctx.callbackQuery) {
+        const [user, animeId] = ctx.callbackQuery.data.replace(/nfm_/i, '').split('_')
+        try {
+            // check if it's the right user
+            if (ctx.callbackQuery.from.id.toString() !== user) {
+                ctx.answerCbQuery('This is not your menu').catch(e => logger.error(e))
+                return
+            }
+
+            const results = await getNovel(parseInt(animeId))
+            const novel = results.Media
+            const note = `${novel.title.romaji ?? 'Title'} (${novel.id})\n${novel.title.english ?? ''}\nGenres: ${novel.genres ? novel.genres.join(', ') : 'n/a'}\nVolumes: ${novel.volumes ?? 'n/a'}  Chapters: ${novel.chapters ?? 'n/a'}\nScore: ${novel.averageScore ?? 'n/a'}\nStatus: ${novel.status ?? 'n/a'}\nSource: ${novel.source ?? 'n/a'}`
+            await prisma.novel
+                .upsert({
+                    where: {
+                        name_userId: {
+                            name: novel.title.romaji.trim(),
+                            userId: user
+                        }
+                    },
+                    create: {
+                        name: novel.title.romaji.trim(),
+                        volume: 1,
+                        note,
+                        releasing: /releasing/i.test(novel.status) ? true : false,
+                        user: {
+                            connectOrCreate: {
+                                where: {
+                                    id: user,
+                                },
+                                create: {
+                                    id: user,
+                                }
+                            }
+                        }
+                    },
+                    update: {
+                        note,
+                    }
+                })
+                .then(() => ctx.answerCbQuery('Anime added/updated!').catch(logger.error))
+                .catch(logger.error)
+
+        } catch (error) {
+            logger.error(error)
+        }
     }
 })
 
