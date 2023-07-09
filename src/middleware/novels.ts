@@ -144,4 +144,36 @@ novel.command(['mynovel', 'mynovels'], async (ctx) => {
     }
 })
 
+novel.command(['releasing', 'r'], async (ctx) => {
+    const novels = await prisma.novel.findMany({
+        where: {
+            userId: ctx.from.id.toString(),
+            releasing: true
+        },
+        take: 11,
+        orderBy: {
+            id: 'desc'
+        }
+    })
+
+    if (novels.length > 0) {
+        const novelList = novels.slice(0, 10).map(novel => `<i>${novel.name}</i><b>${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}</b>`).join('\n')
+
+        const text = `<b>Novels marked as 'RELEASING' stored for you:</b>\n\n${novelList}`
+
+        const buttons = novels.slice(0, 10).map(novel => [Markup.button.callback(`"${novel.name}"`, `novelInfo_${novel.id}_${ctx.from.id.toString()}_rel`)])
+
+        buttons.push([
+            Markup.button.callback('⏭', `releasing_2_${ctx.from.id.toString()}`, novels.length < 11)
+        ])
+
+        const keyboard = Markup.inlineKeyboard(buttons)
+
+        ctx.replyWithHTML(text, keyboard)
+    }
+    else {
+        ctx.replyWithHTML('<i>No novel marked as "RELEASING" found on DB</i>\n\nAdd some!')
+    }
+})
+
 export default novel
