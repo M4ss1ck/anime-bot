@@ -1,6 +1,7 @@
 import { Composer, Markup } from 'telegraf'
 import { logger } from '../logger/index.js'
 import { getNovel, getNovels } from '../anilist-service/index.js'
+import { prisma } from '../db/prisma.js'
 
 const novel = new Composer()
 
@@ -105,6 +106,41 @@ Source: ${media.source ?? 'n/a'}
         } catch (error) {
             logger.error(error)
         }
+    }
+})
+
+novel.command(['mynovel', 'mynovels'], async (ctx) => {
+    const novels = await prisma.novel.findMany({
+        where: {
+            userId: ctx.from.id.toString()
+        },
+        take: 11,
+        orderBy: {
+            id: 'desc'
+        }
+    })
+
+    if (novels.length > 0) {
+        const novelList = novels.slice(0, 10).map(novel => `<i>${novel.name}</i><b>${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}</b>`).join('\n')
+
+        const text = `<b>Novels stored for you:</b>\n\n${novelList}`
+
+        const buttons = novels.slice(0, 10).map(novels => [Markup.button.callback(`"${novels.name}"`, `novelInfo_${novels.id}_${ctx.from.id.toString()}`)])
+
+        buttons.push([
+            Markup.button.callback('⏭', `mynovel_2_${ctx.from.id.toString()}`, novels.length < 11)
+        ])
+
+        buttons.push([
+            Markup.button.callback('💾 Export .txt 💾', `ntxt_${ctx.from.id.toString()}`),
+        ])
+
+        const keyboard = Markup.inlineKeyboard(buttons)
+
+        ctx.replyWithHTML(text, keyboard)
+    }
+    else {
+        ctx.replyWithHTML('<i>No novels found on DB</i>\n\nAdd some!')
     }
 })
 
