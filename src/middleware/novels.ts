@@ -176,4 +176,61 @@ novel.command(['releasing', 'r'], async (ctx) => {
     }
 })
 
+novel.command('nsave', async ctx => {
+    const regex = /^\/nsave (part\d+\s)?(vol\d+\s)?(ch\d+\s)?(.+)([\r\n\u0085\u2028\u2029]+(.+)?)?/i
+    if (regex.test(ctx.message.text)) {
+        try {
+            const match = ctx.message.text.match(regex)
+            if (match) {
+                const partValue = match[1] ? match[1].trim().replace('part', '') : null;
+                const volValue = match[2] ? match[2].trim().replace('vol', '') : null;
+                const chValue = match[3] ? match[3].trim().replace('ch', '') : null;
+                const name = match[4] ? match[4].trim() : null
+                const note = ctx.message.text.replace(/^\/nsave (part\d+\s)?(vol\d+\s)?(ch\d+\s)?(.+)([\r\n\u0085\u2028\u2029]+)?/i, '')
+                if (name) {
+                    await prisma.novel
+                        .upsert({
+                            where: {
+                                name_userId: {
+                                    name: name,
+                                    userId: ctx.from.id.toString()
+                                }
+                            },
+                            create: {
+                                name: name.trim(),
+                                part: partValue ? parseInt(partValue) : null,
+                                volume: volValue ? Number(volValue) : null,
+                                chapter: chValue ? parseInt(chValue) : null,
+                                note,
+                                user: {
+                                    connectOrCreate: {
+                                        where: {
+                                            id: ctx.from.id.toString(),
+                                        },
+                                        create: {
+                                            id: ctx.from.id.toString(),
+                                        }
+                                    }
+                                }
+                            },
+                            update: {
+                                part: partValue ? parseInt(partValue) : null,
+                                volume: volValue ? Number(volValue) : null,
+                                chapter: chValue ? parseInt(chValue) : null,
+                                note,
+                            }
+                        })
+                        .then(() => ctx.reply('Done'))
+                        .catch((e) => {
+                            logger.error(e)
+                            ctx.reply('Error creating/updating that record')
+                        })
+                }
+            }
+        } catch (error) {
+            logger.error(error)
+        }
+    }
+})
+
 export default novel
