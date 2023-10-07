@@ -2,6 +2,7 @@ import { Composer, Markup } from 'telegraf'
 import { logger } from '../logger/index.js'
 import { getNovel, getNovels } from '../anilist-service/index.js'
 import { prisma } from '../db/prisma.js'
+import { escape } from '../utils/index.js'
 import * as fs from 'fs/promises'
 
 const novel = new Composer()
@@ -21,11 +22,11 @@ novel.command('novel', async (ctx) => {
                     buttons.push([Markup.button.callback(novel.title.romaji ?? 'placeholder text', `getNovel${novel.id}`)])
 
                 buttons.push([
-                    Markup.button.callback('⏭', `NovelPage${2}-${search}`, total / perPage <= 1),
+                    Markup.button.callback('⏭', `NovelPage${2}-${escape(search)}`, total / perPage <= 1),
                 ])
 
                 const keyboard = Markup.inlineKeyboard(buttons)
-                const text = `Results for <b>${search}</b>`
+                const text = `Results for <b>${escape(search)}</b>`
 
                 ctx.replyWithHTML(text, keyboard)
             }
@@ -82,15 +83,8 @@ novel.action(/getNovel/, async (ctx) => {
             const results = await getNovel(novelId)
             const media = results.Media
             if (media) {
-                const caption = `<b>${media.title.romaji ?? 'Title'}</b> (${media.id})
-<i>${media.title.english ?? ''}</i>
-Genres: ${media.genres ? media.genres.join(', ') : 'n/a'}
-Volumes: ${media.volumes ?? 'n/a'}  Chapters: ${media.chapters ?? 'n/a'}
-Score: ${media.averageScore ?? 'n/a'}
-Status: ${media.status ?? 'n/a'}
-Source: ${media.source ?? 'n/a'}
-      
-<i>${media.description?.replace(/<(\/)?\w+((\s)?\/)?>/g, '') ?? 'description n/a'}`
+                const caption = `<b>${media.title.romaji ?? 'Title'}</b> (${media.id})\n<i>${media.title.english ?? ''}</i>
+Genres: ${media.genres ? media.genres.join(', ') : 'n/a'}\nVolumes: ${media.volumes ?? 'n/a'}  Chapters: ${media.chapters ?? 'n/a'}\nScore: ${media.averageScore ?? 'n/a'}\nStatus: ${media.status ?? 'n/a'}\nSource: ${media.source ?? 'n/a'}\n\n<i>${media.description ? escape(media.description) : 'description n/a'}`
 
                 const cover = media.coverImage.large
 

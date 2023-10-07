@@ -3,7 +3,7 @@ import { logger } from '../logger/index.js'
 import dayjs from 'dayjs'
 import { getAnime, getAnimes, getCharacter, getCharacters, getIsBirthdayCharacters } from '../anilist-service/index.js'
 
-import { convertMsToRelativeTime } from '../utils/index.js'
+import { convertMsToRelativeTime, escape } from '../utils/index.js'
 
 const anime = new Composer()
 
@@ -22,11 +22,12 @@ anime.command('anime', async (ctx) => {
                     buttons.push([Markup.button.callback(anime.title.romaji ?? 'placeholder text', `getAnime${anime.id}`)])
 
                 buttons.push([
-                    Markup.button.callback('⏭', `AnimPage${2}-${search}`, total / perPage <= 1),
+                    Markup.button.callback('⏭', `AnimPage${2}-${escape(search)}`, total / perPage <= 1),
                 ])
 
                 const keyboard = Markup.inlineKeyboard(buttons)
-                const text = `Results for <b>${search}</b>`
+                //
+                const text = `Results for <b>${escape(search)}</b>`
 
                 ctx.replyWithHTML(text, keyboard)
             }
@@ -83,14 +84,7 @@ anime.action(/getAnime/, async (ctx) => {
             const results = await getAnime(animeId)
             const media = results.Media
             if (media) {
-                const caption = `<b>${media.title.romaji ?? 'Title'}</b> (${media.id})
-<i>${media.title.english ?? ''}</i>
-Genres: ${media.genres ? media.genres.join(', ') : 'n/a'}
-Hashtag: ${media.hashtag ?? 'n/a'}
-Year: ${media.seasonYear ?? 'n/a'}  Episodes: ${media.episodes ?? 'n/a'}
-${media.nextAiringEpisode ? 'Next airing episode: ' + new Date(Math.floor(media.nextAiringEpisode.airingAt * 1000)).toLocaleString('en-US') + ' <i>(in ' + convertMsToRelativeTime(media.nextAiringEpisode.airingAt * 1000 - Date.now()) + ')</i> ' : '<i>no airing info available</i>'}
-
-<i>${media.description?.replace(/<(\/)?\w+((\s)?\/)?>/g, '') ?? 'description n/a'}`
+                const caption = `<b>${media.title.romaji ?? 'Title'}</b> (${media.id})\n<i>${escape(media.title.english ?? '')}</i>\nGenres: ${media.genres ? media.genres.join(', ') : 'n/a'}\nHashtag: ${media.hashtag ?? 'n/a'}\nYear: ${media.seasonYear ?? 'n/a'}  Episodes: ${media.episodes ?? 'n/a'}\n${media.nextAiringEpisode ? 'Next airing episode: ' + new Date(Math.floor(media.nextAiringEpisode.airingAt * 1000)).toLocaleString('en-US') + ' <i>(in ' + convertMsToRelativeTime(media.nextAiringEpisode.airingAt * 1000 - Date.now()) + ')</i> ' : '<i>no airing info available</i>'}\n\n<i>${media.description ? escape(media.description) : 'description n/a'}`
 
                 const cover = media.coverImage.large
 
@@ -154,11 +148,11 @@ anime.command('character', async (ctx) => {
                     buttons.push([Markup.button.callback(char.name.full ?? 'full name error', `getCharacter${char.id}`)])
 
                 buttons.push([
-                    Markup.button.callback('⏭', `CharPage${2}-${search}`, total / perPage <= 1),
+                    Markup.button.callback('⏭', `CharPage${2}-${escape(search)}`, total / perPage <= 1),
                 ])
 
                 const keyboard = Markup.inlineKeyboard(buttons)
-                const text = `Results for <i>${search}</i>`
+                const text = `Results for <i>${escape(search)}</i>`
 
                 ctx.replyWithHTML(text, keyboard)
             }
@@ -211,10 +205,7 @@ anime.action(/getCharacter/, async (ctx) => {
             const results = await getCharacter(characterId)
             const character = results.Character
             if (character) {
-                const caption = `<a href="${character.siteUrl}">${character.name.full ?? 'Nombre'}</a> (${character.id})
-      Age: ${character.age ?? 'n/a'}  Gender: ${character.gender ?? 'n/a'}
-      
-      <i>${character.description?.replace(/<(\/)?\w+((\s)?\/)?>/g, '') ?? 'description n/a'}`
+                const caption = `<a href="${character.siteUrl}">${character.name.full ?? 'Nombre'}</a> (${character.id})\nAge: ${character.age ?? 'n/a'}  Gender: ${character.gender ?? 'n/a'}\n\n<i>${character.description ? escape(character.description) : 'description n/a'}`
 
                 const cover = character.image.large
 

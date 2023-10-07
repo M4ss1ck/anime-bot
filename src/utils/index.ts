@@ -60,3 +60,19 @@ export const runScheduled = async (bot: Telegraf) => {
         }
     }
 }
+
+/**
+ * Escape common characters for HTML
+ * @param {String} s text to escape
+ * @returns parsed text
+ */
+export const escape = (s: string) => {
+    const lookup: Record<string, string> = {
+        ['&']: "&amp;",
+        ['"']: "&quot;",
+        ['\'']: "&apos;",
+        ['<']: "&lt;",
+        ['>']: "&gt;"
+    };
+    return s.replace(/[&"'<>]/g, c => lookup[c]);
+}
