@@ -92,6 +92,11 @@ if (commandList && !commandList.some((command) => command.command === latestComm
 bot.launch()
 logger.success('BOT INICIADO')
 
+bot.catch((err) => {
+    logger.info('[bot.catch] ERROR')
+    logger.error(err)
+})
+
 await runScheduled(bot)
 
 // Enable graceful stop
