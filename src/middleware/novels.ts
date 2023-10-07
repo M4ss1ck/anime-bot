@@ -661,6 +661,7 @@ novel.action(/nfm_\d+_\d+/i, async ctx => {
             }
 
             const results = await getNovel(parseInt(animeId))
+            if (!results) return logger.error('Error with novel update/add')
             const novel = results.Media
             const note = `${novel.title.romaji ?? 'Title'} (${novel.id})\n${novel.title.english ?? ''}\nGenres: ${novel.genres ? novel.genres.join(', ') : 'n/a'}\nVolumes: ${novel.volumes ?? 'n/a'}  Chapters: ${novel.chapters ?? 'n/a'}\nScore: ${novel.averageScore ?? 'n/a'}\nStatus: ${novel.status ?? 'n/a'}\nSource: ${novel.source ?? 'n/a'}`
             await prisma.novel

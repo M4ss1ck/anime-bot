@@ -13,7 +13,7 @@ anime.command('anime', async (ctx) => {
         // buscar en AniList
         try {
             const results = await getAnimes(search)
-            if (!results) await ctx.replyWithHTML('Error. No anime found.')
+            if (!results) return ctx.replyWithHTML('Error. No anime found.')
             const media = results.Page?.media
             const total = results.Page?.pageInfo?.total as number ?? 1
             const perPage = results.Page?.pageInfo?.perPage as number ?? 5
@@ -49,7 +49,7 @@ anime.action(/AnimPage\d+-/i, async (ctx) => {
         // buscar en AniList
         try {
             const results = await getAnimes(search, page)
-            if (!results) logger.error('No results for ' + search + ' in page ' + page)
+            if (!results) return logger.error('No results for ' + search + ' in page ' + page)
             const media = results.Page?.media
             const total = results.Page?.pageInfo?.total as number ?? 1
             const perPage = results.Page?.pageInfo?.perPage as number ?? 5
@@ -84,7 +84,7 @@ anime.action(/getAnime/, async (ctx) => {
         // buscar en AniList
         try {
             const results = await getAnime(animeId)
-            if (!results) await ctx.replyWithHTML('Error. No anime found.').catch(logger.error)
+            if (!results) return ctx.replyWithHTML('Error. No anime found.').catch(logger.error)
             const media = results.Media
             if (media) {
                 const caption = `<b>${media.title.romaji ?? 'Title'}</b> (${media.id})\n<i>${escape(media.title.english ?? '')}</i>\nGenres: ${media.genres ? media.genres.join(', ') : 'n/a'}\nHashtag: ${media.hashtag ?? 'n/a'}\nYear: ${media.seasonYear ?? 'n/a'}  Episodes: ${media.episodes ?? 'n/a'}\n${media.nextAiringEpisode ? 'Next airing episode: ' + new Date(Math.floor(media.nextAiringEpisode.airingAt * 1000)).toLocaleString('en-US') + ' <i>(in ' + convertMsToRelativeTime(media.nextAiringEpisode.airingAt * 1000 - Date.now()) + ')</i> ' : '<i>no airing info available</i>'}\n\n<i>${media.description ? escape(media.description) : 'description n/a'}`
@@ -119,7 +119,7 @@ anime.action(/getAnime/, async (ctx) => {
 anime.command('animebd', async (ctx) => {
     try {
         const results = await getIsBirthdayCharacters()
-        if (!results) await ctx.replyWithHTML('Error. No character found.')
+        if (!results) return ctx.replyWithHTML('Error. No character found.')
         const characters = results.Page?.characters
 
         if (characters && characters.length > 0) {
@@ -142,7 +142,7 @@ anime.command('character', async (ctx) => {
     if (search.length > 2) {
         try {
             const results = await getCharacters(search)
-            if (!results) await ctx.replyWithHTML('Error. No character found.')
+            if (!results) return ctx.replyWithHTML('Error. No character found.')
             const characters = results.Page?.characters
             const total = results.Page?.pageInfo?.total as number ?? 1
             const perPage = results.Page?.pageInfo?.perPage as number ?? 5
@@ -174,7 +174,7 @@ anime.action(/CharPage\d+-/i, async (ctx) => {
     if (search && search.length > 2) {
         try {
             const results = await getCharacters(search, page)
-            if (!results) logger.error('Error in CharPage for ' + search)
+            if (!results) return logger.error('Error in CharPage for ' + search)
             const characters = results.Page?.characters
             const total = results.Page?.pageInfo?.total as number ?? 1
             const perPage = results.Page?.pageInfo?.perPage as number ?? 5
@@ -209,7 +209,7 @@ anime.action(/getCharacter/, async (ctx) => {
         // buscar en AniList
         try {
             const results = await getCharacter(characterId)
-            if (!results) await ctx.replyWithHTML('Error. No character found.').catch(logger.error)
+            if (!results) return ctx.replyWithHTML('Error. No character found.').catch(logger.error)
             const character = results.Character
             if (character) {
                 const caption = `<a href="${character.siteUrl}">${character.name.full ?? 'Nombre'}</a> (${character.id})\nAge: ${character.age ?? 'n/a'}  Gender: ${character.gender ?? 'n/a'}\n\n<i>${character.description ? escape(character.description) : 'description n/a'}`
