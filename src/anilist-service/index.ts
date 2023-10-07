@@ -16,7 +16,7 @@ async function genericQuery(query: string, variables = {}) {
     headers,
   }).catch(err => console.log(err.message))
 
-  return result?.data?.data
+  return result?.data?.data ?? null
 }
 
 async function getAnimes(search: string, page = 1) {
