@@ -95,6 +95,7 @@ scheduler.action(/a_scheduler:/i, async ctx => {
             await ctx.answerCbQuery().catch(e => logger.error(e))
 
             const anime = await getAnime(Number(animeId))
+            if (!anime) await ctx.answerCbQuery('No anime found!').catch(logger.error)
 
             const jobId = `${animeId}:${date}:${userId}`
 

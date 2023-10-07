@@ -373,6 +373,7 @@ actions.action(/afm_\d+_\d+_\d+_\d+/i, async ctx => {
             }
 
             const results = await getAnime(parseInt(animeId))
+            if (!results) await ctx.answerCbQuery('Anime not found').catch(e => logger.error(e))
             const anime = results.Media
             const englishTitle = anime.title.english ?? 'English title not found!'
             await prisma.anime
