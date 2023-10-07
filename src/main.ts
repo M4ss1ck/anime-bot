@@ -7,6 +7,7 @@ import commands from './middleware/commands.js'
 import actions from './middleware/actions.js'
 import inline from './middleware/inline.js'
 import admin from './middleware/admin.js'
+import ping from './middleware/ping.js'
 import { scheduler } from './middleware/scheduler.js'
 import { runScheduled } from './utils/index.js'
 
@@ -15,6 +16,7 @@ const bot = new Telegraf(process.env.BOT_TOKEN ?? '')
 bot
     // .use(users)
     .use(admin)
+    .use(ping)
     .use(anime)
     .use(novel)
     .use(commands)
@@ -26,7 +28,7 @@ const commandList = await bot.telegram
     .getMyCommands()
     .catch((e) => logger.error(e));
 
-const latestCommand = 'mynovels'
+const latestCommand = 'ping'
 if (commandList && !commandList.some((command) => command.command === latestCommand)) {
     bot.telegram.setMyCommands([
         {
@@ -76,6 +78,10 @@ if (commandList && !commandList.some((command) => command.command === latestComm
         {
             command: "novel",
             description: "Search novel in AniList."
+        },
+        {
+            command: "ping",
+            description: "pong!"
         }
     ]);
 } else {
