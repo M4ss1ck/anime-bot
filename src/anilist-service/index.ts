@@ -14,6 +14,8 @@ async function genericQuery(query: string, variables = {}) {
     query,
     variables,
     headers,
+  }, {
+    timeout: 3000,
   }).catch(err => console.log(err.message))
 
   return result?.data?.data ?? null
