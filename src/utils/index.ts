@@ -74,5 +74,5 @@ export const escape = (s: string) => {
         ['<']: "&lt;",
         ['>']: "&gt;"
     };
-    return s.replace(/(\/)?\w+/i, '').replace(/[&"'<>]/g, c => lookup[c]);
+    return s.replace(/<(\/)?\w+>/g, '').replace(/[&"'<>]/g, c => lookup[c]);
 }
