@@ -30,10 +30,10 @@ anime.command('anime', async (ctx) => {
                 //
                 const text = `Results for <b>${escape(search)}</b>`
 
-                ctx.replyWithHTML(text, keyboard)
+                return ctx.replyWithHTML(text, keyboard)
             }
             else {
-                ctx.replyWithHTML('Error. No anime found.')
+                return ctx.replyWithHTML('Error. No anime found.')
             }
         } catch (error) {
             logger.error(error)
@@ -67,7 +67,7 @@ anime.action(/AnimPage\d+-/i, async (ctx) => {
 
                 buttons.push(lastRow)
 
-                ctx.editMessageReplyMarkup({
+                return ctx.editMessageReplyMarkup({
                     inline_keyboard: buttons,
                 })
             }
@@ -99,7 +99,7 @@ anime.action(/getAnime/, async (ctx) => {
                 ] : [[Markup.button.callback('Add to my list', addAction)]]
                 const keyboard = Markup.inlineKeyboard(buttons)
 
-                !ctx.callbackQuery.inline_message_id
+                return !ctx.callbackQuery.inline_message_id
                     ? ctx.replyWithPhoto(cover, {
                         parse_mode: 'HTML',
                         caption: `${caption.slice(0, 1020)}</i>`,
@@ -108,7 +108,7 @@ anime.action(/getAnime/, async (ctx) => {
                     : ctx.editMessageText(`${caption.slice(0, 4090)}</i>`, { parse_mode: "HTML" }).catch(() => ctx.reply('Parsing error. Contact bot owner.'))
             }
             else {
-                ctx.replyWithHTML('Error. No anime found.').catch(logger.error)
+                return ctx.replyWithHTML('Error. No anime found.').catch(logger.error)
             }
         } catch (error) {
             logger.error(error)
@@ -130,7 +130,7 @@ anime.command('animebd', async (ctx) => {
             const keyboard = Markup.inlineKeyboard(buttons)
             const text = 'Characters celebrating their birthday today\n'
 
-            ctx.replyWithHTML(text, keyboard)
+            return ctx.replyWithHTML(text, keyboard)
         }
     } catch (error) {
         logger.error(error)
@@ -159,7 +159,7 @@ anime.command('character', async (ctx) => {
                 const keyboard = Markup.inlineKeyboard(buttons)
                 const text = `Results for <i>${escape(search)}</i>`
 
-                ctx.replyWithHTML(text, keyboard)
+                return ctx.replyWithHTML(text, keyboard)
             }
         } catch (error) {
             logger.error(error)
@@ -193,7 +193,7 @@ anime.action(/CharPage\d+-/i, async (ctx) => {
 
                 buttons.push(lastRow)
 
-                ctx.editMessageReplyMarkup({
+                return ctx.editMessageReplyMarkup({
                     inline_keyboard: buttons,
                 })
             }
@@ -216,7 +216,7 @@ anime.action(/getCharacter/, async (ctx) => {
 
                 const cover = character.image.large
 
-                !ctx.callbackQuery.inline_message_id
+                return !ctx.callbackQuery.inline_message_id
                     ? ctx.replyWithPhoto(cover, {
                         parse_mode: 'HTML',
                         caption: `${caption.slice(0, 1020)}</i>`,
@@ -224,7 +224,7 @@ anime.action(/getCharacter/, async (ctx) => {
                     : ctx.editMessageText(`${caption.slice(0, 4090)}</i>`, { parse_mode: "HTML" })
             }
             else {
-                ctx.replyWithHTML('Error. No character found.').catch(logger.error)
+                return ctx.replyWithHTML('Error. No character found.').catch(logger.error)
             }
         } catch (error) {
             logger.error(error)

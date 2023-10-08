@@ -28,10 +28,10 @@ novel.command('novel', async (ctx) => {
                 const keyboard = Markup.inlineKeyboard(buttons)
                 const text = `Results for <b>${escape(search)}</b>`
 
-                ctx.replyWithHTML(text, keyboard)
+                return ctx.replyWithHTML(text, keyboard)
             }
             else {
-                ctx.replyWithHTML('No novel found.')
+                return ctx.replyWithHTML('No novel found.')
             }
         } catch (error) {
             logger.error(error)
@@ -64,7 +64,7 @@ novel.action(/NovelPage\d+-/i, async (ctx) => {
 
                 buttons.push(lastRow)
 
-                ctx.editMessageReplyMarkup({
+                return ctx.editMessageReplyMarkup({
                     inline_keyboard: buttons,
                 })
             }
@@ -75,7 +75,7 @@ novel.action(/NovelPage\d+-/i, async (ctx) => {
 })
 
 novel.action(/getNovel/, async (ctx) => {
-    ctx.answerCbQuery().catch(logger.error)
+    await ctx.answerCbQuery().catch(logger.error)
     const novelId = parseInt('data' in ctx.callbackQuery ? ctx.callbackQuery.data?.replace('getNovel', '') : '')
     if (!isNaN(novelId)) {
         // buscar en AniList
@@ -92,7 +92,7 @@ Genres: ${media.genres ? media.genres.join(', ') : 'n/a'}\nVolumes: ${media.volu
                 const buttons = [[Markup.button.callback('Add to my list', addAction)]]
                 const keyboard = Markup.inlineKeyboard(buttons)
 
-                !ctx.callbackQuery.inline_message_id
+                return !ctx.callbackQuery.inline_message_id
                     ? ctx.replyWithPhoto(cover, {
                         parse_mode: 'HTML',
                         caption: `${caption.slice(0, 1020)}</i>`,
@@ -101,7 +101,7 @@ Genres: ${media.genres ? media.genres.join(', ') : 'n/a'}\nVolumes: ${media.volu
                     : ctx.editMessageText(`${caption.slice(0, 4090)}</i>`, { parse_mode: "HTML" }).catch(() => ctx.reply('Parsing error. Contact bot owner.'))
             }
             else {
-                ctx.replyWithHTML('No novel found.')
+                return ctx.replyWithHTML('No novel found.')
             }
         } catch (error) {
             logger.error(error)
@@ -137,10 +137,10 @@ novel.command(['mynovel', 'mynovels'], async (ctx) => {
 
         const keyboard = Markup.inlineKeyboard(buttons)
 
-        ctx.replyWithHTML(text, keyboard)
+        return ctx.replyWithHTML(text, keyboard)
     }
     else {
-        ctx.replyWithHTML('<i>No novels found on DB</i>\n\nAdd some!')
+        return ctx.replyWithHTML('<i>No novels found on DB</i>\n\nAdd some!')
     }
 })
 
@@ -169,10 +169,10 @@ novel.command(['releasing', 'r'], async (ctx) => {
 
         const keyboard = Markup.inlineKeyboard(buttons)
 
-        ctx.replyWithHTML(text, keyboard)
+        return ctx.replyWithHTML(text, keyboard)
     }
     else {
-        ctx.replyWithHTML('<i>No novel marked as "RELEASING" found on DB</i>\n\nAdd some!')
+        return ctx.replyWithHTML('<i>No novel marked as "RELEASING" found on DB</i>\n\nAdd some!')
     }
 })
 
@@ -314,7 +314,7 @@ novel.action(/novelInfo_\d+_\d+(_\w+)?/i, async ctx => {
                     text += '<b>Novel not found for this id</b>'
                 }
 
-                ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+                return ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
             }
         }
     }
@@ -411,7 +411,7 @@ novel.action(/(part|vol|ch)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
                     text += '<b>Novel not found for this id</b>'
                 }
 
-                ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+                return ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
             }).catch(logger.error)
         }
     }
@@ -421,7 +421,7 @@ novel.action(/(part|vol|ch)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
 novel.action(/(chapter|volume|part)Alert/i, ctx => {
     if ('data' in ctx.callbackQuery) {
         const type = /chapter/i.test(ctx.callbackQuery.data) ? 'chapter' : /volume/i.test(ctx.callbackQuery.data) ? 'volume' : 'part'
-        ctx
+        return ctx
             .answerCbQuery(`Use the ➖ and ➕ buttons to modify the ${type}`, { show_alert: true })
             .catch(e => logger.error(e))
     }
@@ -446,7 +446,7 @@ novel.action(/toggleReleasing_\d+_\d+_(on|off)(_\w+)?/i, async ctx => {
                 data: {
                     releasing: value === 'on'
                 }
-            }).then(novel => {
+            }).then(async novel => {
                 const buttons = []
 
                 if (novel.part)
@@ -508,7 +508,7 @@ novel.action(/toggleReleasing_\d+_\d+_(on|off)(_\w+)?/i, async ctx => {
                     text += '<b>Novel not found for this id</b>'
                 }
 
-                ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+                return ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
             }).catch(logger.error)
         }
     }
@@ -520,7 +520,7 @@ novel.action(/ntxt_\d+/, async ctx => {
     const fileName = `${userId}_novels.txt`
 
     if (userId !== ctx.callbackQuery.from.id.toString()) {
-        ctx.answerCbQuery('This is not your list').catch(e => logger.error(e))
+        await ctx.answerCbQuery('This is not your list').catch(e => logger.error(e))
     }
     else {
         const novels = await prisma.novel.findMany({
@@ -535,7 +535,7 @@ novel.action(/ntxt_\d+/, async ctx => {
 
         await ctx.replyWithDocument({ source: fileName, filename: `novels_${Date.now()}.txt` }, { caption: 'Your list of novels' })
 
-        await fs.unlink(fileName)
+        await fs.unlink(fileName).catch(logger.error)
     }
 })
 
@@ -545,7 +545,7 @@ novel.action(/mynovel_\d+_\d+/i, async ctx => {
         if (page && userId) {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
-                ctx.answerCbQuery('This is not your novel').catch(e => logger.error(e))
+                await ctx.answerCbQuery('This is not your novel').catch(e => logger.error(e))
                 return
             }
 
@@ -579,7 +579,7 @@ novel.action(/mynovel_\d+_\d+/i, async ctx => {
 
             const keyboard = Markup.inlineKeyboard(buttons)
 
-            ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+            return ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
         }
     }
 })
@@ -590,7 +590,7 @@ novel.action(/releasing_\d+_\d+/i, async ctx => {
         if (page && userId) {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
-                ctx.answerCbQuery('This is not your novel').catch(e => logger.error(e))
+                await ctx.answerCbQuery('This is not your novel').catch(e => logger.error(e))
                 return
             }
 
@@ -621,7 +621,7 @@ novel.action(/releasing_\d+_\d+/i, async ctx => {
 
             const keyboard = Markup.inlineKeyboard(buttons)
 
-            ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+            return ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
         }
     }
 })
@@ -632,16 +632,16 @@ novel.action(/deleteNovel_/, async ctx => {
             const [novelId, userId] = ctx.callbackQuery.data.replace(/deleteNovel_/i, '').split('_')
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
-                ctx.answerCbQuery('This is not your menu').catch(e => logger.error(e))
+                await ctx.answerCbQuery('This is not your menu').catch(e => logger.error(e))
                 return
             }
             await prisma.novel.delete({
                 where: {
                     id: parseInt(novelId)
                 }
-            }).then(() => {
-                ctx.answerCbQuery('Novel deleted!').catch(logger.error)
-                ctx.replyWithHTML('Your novel record was deleted.\nIf you made a mistake, just send the <code>monospaced text</code> in the previous message.')
+            }).then(async () => {
+                await ctx.answerCbQuery('Novel deleted!').catch(logger.error)
+                return ctx.replyWithHTML('Your novel record was deleted.\nIf you made a mistake, just send the <code>monospaced text</code> in the previous message.')
             }).catch(() => ctx.answerCbQuery().catch(logger.error))
         }
     } catch (error) {
@@ -656,7 +656,7 @@ novel.action(/nfm_\d+_\d+/i, async ctx => {
         try {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== user) {
-                ctx.answerCbQuery('This is not your menu').catch(e => logger.error(e))
+                await ctx.answerCbQuery('This is not your menu').catch(e => logger.error(e))
                 return
             }
 

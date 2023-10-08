@@ -61,7 +61,7 @@ actions.action(/animeInfo_\d+_\d+(_\w+)?/i, async ctx => {
 
                 const text = anime ? `<b>Name:</b> ${anime.name}\n<b>Season:</b> ${anime.season}\n<b>Episode:</b> ${anime.episode}\n\n<b>Note:</b>\n${anime.note && anime.note.length > 0 ? anime.note : '-'}\n\n<i>To edit, use the buttons or modify the following code:</i>\n<pre>/save ${anime.season} ${anime.episode} ${anime.name}\n${anime.note}</pre>` : '<b>Anime not found for this id</b>'
 
-                ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+                return ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
             }
         }
     }
@@ -95,7 +95,7 @@ actions.action(/(season|episode)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
                         increment: episodeIncrement
                     }
                 }
-            }).then((anime) => {
+            }).then(async (anime) => {
                 const buttons = []
 
                 buttons.push([
@@ -128,7 +128,7 @@ actions.action(/(season|episode)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
 
                 const text = anime ? `<b>Name:</b> ${anime.name}\n<b>Season:</b> ${anime.season}\n<b>Episode:</b> ${anime.episode}\n\n<b>Note:</b>\n${anime.note && anime.note.length > 0 ? anime.note : '-'}\n\n<i>To edit, use the buttons or modify the following code:</i>\n<pre>/save ${anime.season} ${anime.episode} ${anime.name}\n${anime.note}</pre>` : '<b>Anime not found for this id</b>'
 
-                ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+                await ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
             }).catch(logger.error)
         }
     }
@@ -161,7 +161,7 @@ actions.action(/toggleOnAir_\d+_\d+_(on|off)(_\w+)?/i, async ctx => {
                 data: {
                     onAir: value === 'on'
                 }
-            }).then(anime => {
+            }).then(async anime => {
                 const buttons = []
 
                 buttons.push([
@@ -194,7 +194,7 @@ actions.action(/toggleOnAir_\d+_\d+_(on|off)(_\w+)?/i, async ctx => {
 
                 const text = anime ? `<b>Name:</b> ${anime.name}\n<b>Season:</b> ${anime.season}\n<b>Episode:</b> ${anime.episode}\n\n<b>Note:</b>\n${anime.note && anime.note.length > 0 ? anime.note : '-'}\n\n<i>To edit, use the buttons or modify the following code:</i>\n<pre>/save ${anime.season} ${anime.episode} ${anime.name}\n${anime.note}</pre>` : '<b>Anime not found for this id</b>'
 
-                ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+                await ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
             }).catch(logger.error)
         }
     }
@@ -207,7 +207,7 @@ actions.action(/txt_\d+/, async ctx => {
     const fileName = `${userId}.txt`
 
     if (userId !== ctx.callbackQuery.from.id.toString()) {
-        ctx.answerCbQuery('This is not your list').catch(e => logger.error(e))
+        await ctx.answerCbQuery('This is not your list').catch(e => logger.error(e))
     }
     else {
         const animes = await prisma.anime.findMany({
@@ -222,7 +222,7 @@ actions.action(/txt_\d+/, async ctx => {
 
         await ctx.replyWithDocument({ source: fileName, filename: `anime_${Date.now()}.txt` }, { caption: 'Your list of anime' })
 
-        await fs.unlink(fileName)
+        await fs.unlink(fileName).catch(logger.error)
     }
 })
 
@@ -232,7 +232,7 @@ actions.action(/myanime_\d+_\d+/i, async ctx => {
         if (page && userId) {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
-                ctx.answerCbQuery('This is not your anime').catch(e => logger.error(e))
+                await ctx.answerCbQuery('This is not your anime').catch(e => logger.error(e))
                 return
             }
 
@@ -266,7 +266,7 @@ actions.action(/myanime_\d+_\d+/i, async ctx => {
 
             const keyboard = Markup.inlineKeyboard(buttons)
 
-            ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+            return ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
         }
     }
 })
@@ -277,7 +277,7 @@ actions.action(/airing_\d+_\d+/i, async ctx => {
         if (page && userId) {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
-                ctx.answerCbQuery('This is not your anime').catch(e => logger.error(e))
+                await ctx.answerCbQuery('This is not your anime').catch(e => logger.error(e))
                 return
             }
 
@@ -308,7 +308,7 @@ actions.action(/airing_\d+_\d+/i, async ctx => {
 
             const keyboard = Markup.inlineKeyboard(buttons)
 
-            ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+            return ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
         }
     }
 })
@@ -319,7 +319,7 @@ actions.action(/Local_\d+_\d+_.+/i, async ctx => {
         if (page && userId && query) {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
-                ctx.answerCbQuery('This is not your anime').catch(e => logger.error(e))
+                await ctx.answerCbQuery('This is not your anime').catch(e => logger.error(e))
                 return
             }
 
@@ -356,7 +356,7 @@ actions.action(/Local_\d+_\d+_.+/i, async ctx => {
 
             const keyboard = Markup.inlineKeyboard(buttons)
 
-            ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+            return ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
         }
     }
 })
@@ -368,7 +368,7 @@ actions.action(/afm_\d+_\d+_\d+_\d+/i, async ctx => {
         try {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== user) {
-                ctx.answerCbQuery('This is not your menu').catch(e => logger.error(e))
+                await ctx.answerCbQuery('This is not your menu').catch(e => logger.error(e))
                 return
             }
 
@@ -420,7 +420,7 @@ actions.action(/deleteAnime_/, async ctx => {
             const [animeId, userId] = ctx.callbackQuery.data.replace(/deleteAnime_/i, '').split('_')
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
-                ctx.answerCbQuery('This is not your menu').catch(e => logger.error(e))
+                await ctx.answerCbQuery('This is not your menu').catch(e => logger.error(e))
                 return
             }
             await prisma.anime.delete({

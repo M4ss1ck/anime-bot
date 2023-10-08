@@ -7,14 +7,14 @@ import { padTo2Digits } from "../utils/index.js"
 
 const commands = new Composer()
 
-commands.start(ctx => {
-    ctx.replyWithHTML(
+commands.start(async ctx => {
+    return ctx.replyWithHTML(
         `Welcome!\n\nI can help you to look for anime and other stuff\nType /help to see what I can do`
     )
 })
 
-commands.help(ctx => {
-    ctx.replyWithHTML(
+commands.help(async ctx => {
+    return ctx.replyWithHTML(
         `Hi, ${ctx.from.first_name}!\nType <code>/save numberOfSeason numberOfEpisode nameOfAnime</code> to store anime in the database so you can remember where you left it <i>(very useful if you see a lot of anime)</i>.\n\nYou can also add a note using a new line.\nExample:\n<pre>/save 1 13 Spy X Family\nWatching with my gf</pre>\n\nThen using <code>/myanime</code> you can see the full list of anime you stored\n\nThere are other commands to search in Anilist:\n/anime &lt;name of anime> - look for anime\n/animebd - returns a list of characters whose birthday is today\n/character &lt;name of character> - look for character`
     )
 })
@@ -47,10 +47,10 @@ commands.command(['myanime', 'myanimes'], async (ctx) => {
 
         const keyboard = Markup.inlineKeyboard(buttons)
 
-        ctx.replyWithHTML(text, keyboard)
+        return ctx.replyWithHTML(text, keyboard)
     }
     else {
-        ctx.replyWithHTML('<i>No anime found on DB</i>\n\nAdd some!')
+        return ctx.replyWithHTML('<i>No anime found on DB</i>\n\nAdd some!')
     }
 })
 
@@ -79,10 +79,10 @@ commands.command(['onair', 'airing', 't'], async (ctx) => {
 
         const keyboard = Markup.inlineKeyboard(buttons)
 
-        ctx.replyWithHTML(text, keyboard)
+        return ctx.replyWithHTML(text, keyboard)
     }
     else {
-        ctx.replyWithHTML('<i>No anime marked as "On Air" found on DB</i>\n\nAdd some!')
+        return ctx.replyWithHTML('<i>No anime marked as "On Air" found on DB</i>\n\nAdd some!')
     }
 })
 
@@ -200,7 +200,7 @@ commands.command('import', async ctx => {
                         ctx.reply('Error creating/updating that record')
                     })
             }
-            ctx.replyWithHTML(`${recordsCount} records were created, updated or ignored`)
+            return ctx.replyWithHTML(`${recordsCount} records were created, updated or ignored`)
         } catch (error) {
             logger.error('Failed to import anime list')
             logger.error(error)

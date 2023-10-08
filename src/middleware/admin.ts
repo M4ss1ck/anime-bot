@@ -1,4 +1,4 @@
-import { Composer, Markup } from "telegraf"
+import { Composer } from "telegraf"
 import { prisma } from "../db/prisma.js"
 import { logger } from "../logger/index.js"
 
@@ -22,7 +22,7 @@ admin.command('users', Composer.acl(Number(adminID), async ctx => {
 
     await ctx.replyWithDocument({ source: fileName, filename: fileName }, { caption: 'List of users' })
 
-    await fs.unlink(fileName)
+    await fs.unlink(fileName).catch(logger.error)
 }))
 
 export default admin

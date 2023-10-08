@@ -11,7 +11,7 @@ dayjs.extend(relativeTime)
 export const scheduler = new Composer()
 
 scheduler.command('now', async ctx => {
-    ctx
+    return ctx
         .reply(`Dayjs: ${dayjs()} (${dayjs().valueOf()})\nDate: ${new Date()} (${new Date().getTime()})`)
         .catch(e => logger.error(e))
 })
@@ -36,15 +36,15 @@ scheduler.command('tping', async ctx => {
         Markup.button.callback('Cancel', `cancel:${id}`)
     ])
     const future = dayjs().add(15, 's')
-    ctx
-        .reply(`Should ping in 15s at ${future.toString()}`, keyboard)
-        .catch(e => logger.error(e))
     const jobText = await scheduled(id, future.valueOf(), () => {
         ctx
             .reply(`Should have ping at ${future.toString()}`, keyboard)
             .catch(e => logger.error(e))
     })
     logger.info(jobText)
+    return ctx
+        .reply(`Should ping in 15s at ${future.toString()}`, keyboard)
+        .catch(e => logger.error(e))
 })
 
 scheduler.action(/cancel:/i, async ctx => {
@@ -60,11 +60,11 @@ scheduler.action(/cancel:/i, async ctx => {
             }
         }).catch(() => logger.info('Couldn\'t delete job from DB'))
 
-        ctx
+        return ctx
             .reply(`Scheduled job "${jobId}" was canceled`)
             .catch(e => logger.error(e))
     } else {
-        ctx
+        return ctx
             .reply(`Error 404: Job not found`)
             .catch(e => logger.error(e))
     }
@@ -78,7 +78,7 @@ scheduler.action(/check_date:/i, async ctx => {
             ? `This job should run at ${dayjs(Number(date))} <i>(${dayjs(Number(date)).fromNow()})</i>`
             : `This job uses no date, but a cron expression: <i>${date}</i>`
 
-        ctx.replyWithHTML(text).catch(e => logger.error(e))
+        return ctx.replyWithHTML(text).catch(e => logger.error(e))
     }
 })
 
@@ -107,7 +107,7 @@ scheduler.action(/a_scheduler:/i, async ctx => {
                 ctx.telegram.sendMessage(userId, `This is your reminder for anime ${anime.Media.title.english ?? 'n/a'}`, keyboard)
             }, `This is your reminder for anime ${anime.Media.title.english ?? 'n/a'}`)
 
-            !ctx.callbackQuery.inline_message_id
+            return !ctx.callbackQuery.inline_message_id
                 ? ctx.telegram.sendMessage(userId, `Reminder for anime ${anime.Media.title.english ?? 'n/a'}\n${jobText}`)
                 : ctx.editMessageCaption(`Reminder for anime ${anime.Media.title.english ?? 'n/a'}\n${jobText}`)
         }
@@ -131,7 +131,7 @@ scheduler.command('reminder', async ctx => {
                 ctx.telegram.sendMessage(userId, text, keyboard)
             }, text)
 
-            ctx.telegram.sendMessage(userId, `${text}\n${jobText}`, keyboard)
+            return ctx.telegram.sendMessage(userId, `${text}\n${jobText}`, keyboard)
         }
     }
 })
@@ -158,11 +158,11 @@ scheduler.command(['myjobs', 'myreminders'], async ctx => {
         ? `<b>Your reminders:</b>\n${filteredJobs.map(job => `[${/^\d+$/.test(job.date) ? dayjs(Number(job.date)).fromNow() : job.date}] <i>${job.text}</i>`).join('\n')}`
         : 'You have no reminders currently active'
 
-    ctx.replyWithHTML(text, keyboard)
+    return ctx.replyWithHTML(text, keyboard)
 })
 
 scheduler.command('convert', async ctx => {
     const date = ctx.message.text.replace(/^\/convert(@\w+)?\s/, '')
     const text = `<b>${date}</b>\nDate: ${dayjs(date)}\nMilliseconds: ${dayjs(date).valueOf()}`
-    ctx.replyWithHTML(text).catch(logger.error)
+    return ctx.replyWithHTML(text).catch(logger.error)
 })

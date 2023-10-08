@@ -51,7 +51,7 @@ inline.on('inline_query', async (ctx) => {
         ...markup,
     }))
 
-    return await ctx
+    return ctx
         .answerInlineQuery(recipes as never, { cache_time: 5, is_personal: true })
         .catch(e => logger.error('ERROR WITH INLINE QUERY\n', e))
 })
