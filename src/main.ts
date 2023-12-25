@@ -8,6 +8,7 @@ import actions from './middleware/actions.js'
 import inline from './middleware/inline.js'
 import admin from './middleware/admin.js'
 import ping from './middleware/ping.js'
+import broadcast from './middleware/broadcast.js'
 import { scheduler } from './middleware/scheduler.js'
 import { runScheduled } from './utils/index.js'
 
@@ -22,6 +23,7 @@ bot
     .use(commands)
     .use(actions)
     .use(inline)
+    .use(broadcast)
     .use(scheduler)
 
 const commandList = await bot.telegram
