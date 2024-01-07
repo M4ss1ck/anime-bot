@@ -2,6 +2,7 @@ import { Composer, Markup } from "telegraf"
 import axios from "axios"
 import { prisma } from "../db/prisma.js"
 import { logger } from "../logger/index.js"
+import type { Anime } from "@prisma/client"
 
 import { padTo2Digits } from "../utils/index.js"
 
@@ -20,37 +21,62 @@ commands.help(async ctx => {
 })
 
 commands.command(['myanime', 'myanimes'], async (ctx) => {
-    const animes = await prisma.anime.findMany({
-        where: {
-            userId: ctx.from.id.toString()
-        },
-        take: 11,
-        orderBy: {
-            id: 'desc'
+    try {
+        const query = ctx.message.text.replace(/^\/myanime(s)?((@\w+)?\s+)?/i, "")
+        let animes: Anime[] = []
+        if (query.length > 0) {
+            animes = await prisma.anime.findMany({
+                where: {
+                    userId: ctx.from.id.toString(),
+                    name: {
+                        contains: query
+                    },
+                },
+                take: 30,
+                orderBy: {
+                    id: 'desc',
+                }
+            })
+        } else {
+            animes = await prisma.anime.findMany({
+                where: {
+                    userId: ctx.from.id.toString()
+                },
+                take: 11,
+                orderBy: {
+                    id: 'desc'
+                }
+            })
         }
-    })
 
-    if (animes.length > 0) {
-        const animelist = animes.slice(0, 10).map(anime => `<i>${anime.name}</i> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
+        if (animes.length > 0) {
+            const animelist = animes.slice(0, !query ? 10 : 30).map(anime => `<i>${anime.name}</i> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
 
-        const text = `<b>Anime stored for you:</b>\n\n${animelist}`
+            const text = `<b>Anime stored for you:</b>\n\n${animelist}`
 
-        const buttons = animes.slice(0, 10).map(anime => [Markup.button.callback(`"${anime.name}"`, `animeInfo_${anime.id}_${ctx.from.id.toString()}`)])
+            const buttons = animes.slice(0, !query ? 10 : 30).map(anime => [Markup.button.callback(`"${anime.name}"`, `animeInfo_${anime.id}_${ctx.from.id.toString()}`)])
 
-        buttons.push([
-            Markup.button.callback('⏭', `myanime_2_${ctx.from.id.toString()}`, animes.length < 11)
-        ])
+            buttons.push([
+                Markup.button.callback('⏭', `myanime_2_${ctx.from.id.toString()}`, animes.length < 11 || query.length > 0)
+            ])
 
-        buttons.push([
-            Markup.button.callback('💾 Export .txt 💾', `txt_${ctx.from.id.toString()}`),
-        ])
+            buttons.push([
+                Markup.button.callback('📋 Full List 📋', `myanime_1_${ctx.from.id.toString()}`, !query)
+            ])
 
-        const keyboard = Markup.inlineKeyboard(buttons)
+            buttons.push([
+                Markup.button.callback('💾 Export .txt 💾', `txt_${ctx.from.id.toString()}`),
+            ])
 
-        return ctx.replyWithHTML(text, keyboard)
-    }
-    else {
-        return ctx.replyWithHTML('<i>No anime found on DB</i>\n\nAdd some!')
+            const keyboard = Markup.inlineKeyboard(buttons)
+
+            return ctx.replyWithHTML(text, keyboard)
+        }
+        else {
+            return ctx.replyWithHTML('<i>No anime found on DB</i>\n\nAdd some!')
+        }
+    } catch (error) {
+        logger.error(error)
     }
 })
 
