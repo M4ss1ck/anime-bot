@@ -91,7 +91,7 @@ actions.action(/(season|episode)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
                     season: {
                         increment: seasonIncrement
                     },
-                    episode: {
+                    episode: isSeason ? 1 : {
                         increment: episodeIncrement
                     }
                 }
