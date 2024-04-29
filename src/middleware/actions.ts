@@ -249,7 +249,7 @@ actions.action(/myanime_\d+_\d+/i, async ctx => {
                 }
             })
 
-            const animelist = animes.slice(0, 10).map(anime => `<i>${anime.name}</i> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
+            const animelist = animes.slice(0, 10).map(anime => `<code>${anime.name}</code> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
 
             const text = `<b>Anime stored for you:</b>\n\n${animelist}`
 
@@ -295,7 +295,7 @@ actions.action(/airing_\d+_\d+/i, async ctx => {
                 }
             })
 
-            const animelist = animes.slice(0, 10).map(anime => `<i>${anime.name}</i> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
+            const animelist = animes.slice(0, 10).map(anime => `<code>${anime.name}</code> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
 
             const text = `<b>Anime marked as 'On Air' stored for you:</b>\n\n${animelist}`
 
@@ -339,7 +339,7 @@ actions.action(/Local_\d+_\d+_.+/i, async ctx => {
                 }
             })
 
-            const animelist = animes.map(anime => `<i>${anime.name}</i> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
+            const animelist = animes.map(anime => `<code>${anime.name}</code> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
 
             const text = `<b>Anime stored for you:</b>\n\n${animelist}`
 

@@ -50,7 +50,7 @@ commands.command(['myanime', 'myanimes'], async (ctx) => {
         }
 
         if (animes.length > 0) {
-            const animelist = animes.slice(0, !query ? 10 : 30).map(anime => `<i>${anime.name}</i> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
+            const animelist = animes.slice(0, !query ? 10 : 30).map(anime => `<code>${anime.name}</code> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
 
             const text = `<b>Anime stored for you:</b>\n\n${animelist}`
 
@@ -93,7 +93,7 @@ commands.command(['onair', 'airing', 't'], async (ctx) => {
     })
 
     if (animes.length > 0) {
-        const animelist = animes.slice(0, 10).map(anime => `<i>${anime.name}</i> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
+        const animelist = animes.slice(0, 10).map(anime => `<code>${anime.name}</code> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
 
         const text = `<b>Anime marked as 'On Air' stored for you:</b>\n\n${animelist}`
 

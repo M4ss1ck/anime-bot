@@ -121,7 +121,7 @@ novel.command(['mynovel', 'mynovels'], async (ctx) => {
     })
 
     if (novels.length > 0) {
-        const novelList = novels.slice(0, 10).map(novel => `<i>${novel.name}</i><b>${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}</b>`).join('\n')
+        const novelList = novels.slice(0, 10).map(novel => `<code>${novel.name}</code><b>${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}</b>`).join('\n')
 
         const text = `<b>Novels stored for you:</b>\n\n${novelList}`
 
@@ -157,7 +157,7 @@ novel.command(['releasing', 'r'], async (ctx) => {
     })
 
     if (novels.length > 0) {
-        const novelList = novels.slice(0, 10).map(novel => `<i>${novel.name}</i><b>${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}</b>`).join('\n')
+        const novelList = novels.slice(0, 10).map(novel => `<code>${novel.name}</code><b>${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}</b>`).join('\n')
 
         const text = `<b>Novels marked as 'RELEASING' stored for you:</b>\n\n${novelList}`
 
@@ -562,7 +562,7 @@ novel.action(/mynovel_\d+_\d+/i, async ctx => {
                 }
             })
 
-            const novelList = novels.slice(0, 10).map(novel => `<i>${novel.name}</i><b>${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}</b>`).join('\n')
+            const novelList = novels.slice(0, 10).map(novel => `<code>${novel.name}</code><b>${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}</b>`).join('\n')
 
             const text = `<b>Novels stored for you:</b>\n\n${novelList}`
 
@@ -608,7 +608,7 @@ novel.action(/releasing_\d+_\d+/i, async ctx => {
                 }
             })
 
-            const novelList = novels.slice(0, 10).map(novel => `<i>${novel.name}</i><b>${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}</b>`).join('\n')
+            const novelList = novels.slice(0, 10).map(novel => `<code>${novel.name}</code><b>${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}</b>`).join('\n')
 
             const text = `<b>Novels marked as 'RELEASING' stored for you:</b>\n\n${novelList}`
 
