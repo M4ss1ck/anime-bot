@@ -115,9 +115,13 @@ novel.command(['mynovel', 'mynovels'], async (ctx) => {
             userId: ctx.from.id.toString()
         },
         take: 11,
-        orderBy: {
-            id: 'desc'
-        }
+        orderBy: [
+            {
+                updatedAt: { sort: 'desc', nulls: 'last' },
+            }, {
+                id: 'desc'
+            }
+        ]
     })
 
     if (novels.length > 0) {
@@ -151,9 +155,13 @@ novel.command(['releasing', 'r'], async (ctx) => {
             releasing: true
         },
         take: 11,
-        orderBy: {
-            id: 'desc'
-        }
+        orderBy: [
+            {
+                updatedAt: { sort: 'desc', nulls: 'last' },
+            }, {
+                id: 'desc'
+            }
+        ]
     })
 
     if (novels.length > 0) {
@@ -526,7 +534,14 @@ novel.action(/ntxt_\d+/, async ctx => {
         const novels = await prisma.novel.findMany({
             where: {
                 userId: userId
-            }
+            },
+            orderBy: [
+                {
+                    updatedAt: { sort: 'desc', nulls: 'last' },
+                }, {
+                    id: 'desc'
+                }
+            ]
         })
 
         const novelList = novels.map(novel => `${novel.name} ${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}`).join('\n')
@@ -557,9 +572,13 @@ novel.action(/mynovel_\d+_\d+/i, async ctx => {
                 },
                 take: 11,
                 skip: skip,
-                orderBy: {
-                    id: 'desc'
-                }
+                orderBy: [
+                    {
+                        updatedAt: { sort: 'desc', nulls: 'last' },
+                    }, {
+                        id: 'desc'
+                    }
+                ]
             })
 
             const novelList = novels.slice(0, 10).map(novel => `<code>${novel.name}</code><b>${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}</b>`).join('\n')
@@ -603,9 +622,13 @@ novel.action(/releasing_\d+_\d+/i, async ctx => {
                 },
                 take: 11,
                 skip: skip,
-                orderBy: {
-                    id: 'desc'
-                }
+                orderBy: [
+                    {
+                        updatedAt: { sort: 'desc', nulls: 'last' },
+                    }, {
+                        id: 'desc'
+                    }
+                ]
             })
 
             const novelList = novels.slice(0, 10).map(novel => `<code>${novel.name}</code><b>${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}</b>`).join('\n')

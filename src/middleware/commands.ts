@@ -33,9 +33,13 @@ commands.command(['myanime', 'myanimes'], async (ctx) => {
                     },
                 },
                 take: 30,
-                orderBy: {
-                    id: 'desc',
-                }
+                orderBy: [
+                    {
+                        updatedAt: { sort: 'desc', nulls: 'last' },
+                    }, {
+                        id: 'desc'
+                    }
+                ]
             })
         } else {
             animes = await prisma.anime.findMany({
@@ -43,9 +47,13 @@ commands.command(['myanime', 'myanimes'], async (ctx) => {
                     userId: ctx.from.id.toString()
                 },
                 take: 11,
-                orderBy: {
-                    id: 'desc'
-                }
+                orderBy: [
+                    {
+                        updatedAt: { sort: 'desc', nulls: 'last' },
+                    }, {
+                        id: 'desc'
+                    }
+                ]
             })
         }
 
@@ -87,9 +95,13 @@ commands.command(['onair', 'airing', 't'], async (ctx) => {
             onAir: true
         },
         take: 11,
-        orderBy: {
-            id: 'desc'
-        }
+        orderBy: [
+            {
+                updatedAt: { sort: 'desc', nulls: 'last' },
+            }, {
+                id: 'desc'
+            }
+        ]
     })
 
     if (animes.length > 0) {

@@ -213,6 +213,10 @@ actions.action(/txt_\d+/, async ctx => {
         const animes = await prisma.anime.findMany({
             where: {
                 userId: userId
+            },
+            orderBy: {
+                updatedAt: { sort: 'desc', nulls: 'last' },
+                id: 'desc'
             }
         })
 
@@ -244,9 +248,13 @@ actions.action(/myanime_\d+_\d+/i, async ctx => {
                 },
                 take: 11,
                 skip: skip,
-                orderBy: {
-                    id: 'desc'
-                }
+                orderBy: [
+                    {
+                        updatedAt: { sort: 'desc', nulls: 'last' },
+                    }, {
+                        id: 'desc'
+                    }
+                ]
             })
 
             const animelist = animes.slice(0, 10).map(anime => `<code>${anime.name}</code> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
@@ -290,9 +298,13 @@ actions.action(/airing_\d+_\d+/i, async ctx => {
                 },
                 take: 11,
                 skip: skip,
-                orderBy: {
-                    id: 'desc'
-                }
+                orderBy: [
+                    {
+                        updatedAt: { sort: 'desc', nulls: 'last' },
+                    }, {
+                        id: 'desc'
+                    }
+                ]
             })
 
             const animelist = animes.slice(0, 10).map(anime => `<code>${anime.name}</code> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
@@ -334,9 +346,13 @@ actions.action(/Local_\d+_\d+_.+/i, async ctx => {
                 },
                 take: 11,
                 skip: skip,
-                orderBy: {
-                    id: 'desc'
-                }
+                orderBy: [
+                    {
+                        updatedAt: { sort: 'desc', nulls: 'last' },
+                    }, {
+                        id: 'desc'
+                    }
+                ]
             })
 
             const animelist = animes.map(anime => `<code>${anime.name}</code> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
