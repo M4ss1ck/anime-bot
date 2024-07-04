@@ -17,28 +17,30 @@ model User {
 }
 
 model Anime {
-  id      Int      @id @default(autoincrement())
-  name    String
-  season  Int
-  episode Int
-  onAir   Boolean? @default(false)
-  note    String?
-  userId  String
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        Int       @id @default(autoincrement())
+  name      String
+  season    Int
+  episode   Int
+  onAir     Boolean?  @default(false)
+  note      String?
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedAt DateTime? @updatedAt
 
   @@unique([name, userId])
 }
 
 model Novel {
-  id        Int     @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   name      String
   volume    Float?
   chapter   Int?
   part      Int?
-  releasing Boolean @default(false)
-  note      String  @default("")
+  releasing Boolean   @default(false)
+  note      String    @default("")
   userId    String
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedAt DateTime? @updatedAt
 
   @@unique([name, userId])
 }
