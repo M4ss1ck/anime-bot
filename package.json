@@ -4,7 +4,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "tsc -p ./tsconfig.json && node -r dotenv/config ./dist/main.js",
+    "start": "prisma generate && tsc -p ./tsconfig.json && node -r dotenv/config ./dist/main.js",
     "build": "prisma generate && prisma db push && tsc -p ./tsconfig.json",
     "validate": "prisma validate",
     "db-pull": "prisma db pull",
