@@ -691,12 +691,12 @@ novel.action(/nfm_\d+_\d+/i, async ctx => {
                 .upsert({
                     where: {
                         name_userId: {
-                            name: novel.title.romaji.trim(),
+                            name: novel.title.english.trim(),
                             userId: user
                         }
                     },
                     create: {
-                        name: novel.title.romaji.trim(),
+                        name: novel.title.english.trim(),
                         volume: 1,
                         note,
                         releasing: /releasing/i.test(novel.status) ? true : false,
