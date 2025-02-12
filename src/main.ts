@@ -9,6 +9,7 @@ import inline from './middleware/inline.js'
 import admin from './middleware/admin.js'
 import ping from './middleware/ping.js'
 import broadcast from './middleware/broadcast.js'
+import commandLogger from './middleware/commandLogger.js'
 import { scheduler } from './middleware/scheduler.js'
 import { runScheduled } from './utils/index.js'
 
@@ -16,6 +17,7 @@ const bot = new Telegraf(process.env.BOT_TOKEN ?? '')
 
 bot
     // .use(users)
+    .use(commandLogger)
     .use(admin)
     .use(ping)
     .use(anime)
