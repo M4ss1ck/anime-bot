@@ -78,7 +78,7 @@ commands.command(['myanime', 'myanimes'], async (ctx) => {
 
             const keyboard = Markup.inlineKeyboard(buttons)
 
-            return ctx.replyWithHTML(text, keyboard)
+            return ctx.replyWithHTML(text, keyboard).catch(logger.error)
         }
         else {
             return ctx.replyWithHTML('<i>No anime found on DB</i>\n\nAdd some!')
@@ -117,7 +117,7 @@ commands.command(['onair', 'airing', 't'], async (ctx) => {
 
         const keyboard = Markup.inlineKeyboard(buttons)
 
-        return ctx.replyWithHTML(text, keyboard)
+        return ctx.replyWithHTML(text, keyboard).catch(logger.error)
     }
     else {
         return ctx.replyWithHTML('<i>No anime marked as "On Air" found on DB</i>\n\nAdd some!')
