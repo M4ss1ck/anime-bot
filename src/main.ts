@@ -91,7 +91,9 @@ if (commandList && !commandList.some((command) => command.command === latestComm
 }
 
 // Iniciar bot
-bot.launch()
+bot.launch({
+    dropPendingUpdates: true,
+})
 logger.success('BOT INICIADO')
 
 bot.catch((err) => {
