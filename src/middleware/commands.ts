@@ -4,7 +4,7 @@ import { prisma } from "../db/prisma.js"
 import { logger } from "../logger/index.js"
 import type { Anime } from "@prisma/client"
 
-import { padTo2Digits } from "../utils/index.js"
+import { padTo2Digits, escape } from "../utils/index.js"
 
 const commands = new Composer()
 
@@ -78,7 +78,7 @@ commands.command(['myanime', 'myanimes'], async (ctx) => {
 
             const keyboard = Markup.inlineKeyboard(buttons)
 
-            return ctx.replyWithHTML(text, keyboard).catch(logger.error)
+            return ctx.replyWithHTML(escape(text), keyboard).catch(logger.error)
         }
         else {
             return ctx.replyWithHTML('<i>No anime found on DB</i>\n\nAdd some!')
@@ -117,7 +117,7 @@ commands.command(['onair', 'airing', 't'], async (ctx) => {
 
         const keyboard = Markup.inlineKeyboard(buttons)
 
-        return ctx.replyWithHTML(text, keyboard).catch(logger.error)
+        return ctx.replyWithHTML(escape(text), keyboard).catch(logger.error)
     }
     else {
         return ctx.replyWithHTML('<i>No anime marked as "On Air" found on DB</i>\n\nAdd some!')
