@@ -1,6 +1,6 @@
 import { Composer } from 'telegraf'
 import { callbackQuery, message } from "telegraf/filters"
-import { logger as log } from '../logger'
+import { logger as log } from '../logger/index.js'
 
 const logger = new Composer()
 
