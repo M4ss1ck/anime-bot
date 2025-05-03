@@ -33,15 +33,9 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/.env ./.env
-
-# Apply database migrations
-# This command applies pending migrations from the prisma/migrations folder
-RUN npx prisma generate # Ensure client is generated based on copied schema
-RUN npx prisma migrate deploy
 
 # Expose the port the app runs on
 EXPOSE 3000
 
 # Command to run the application
-CMD ["node", "-r", "dotenv/config", "./dist/main.js"]
+CMD ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && node -r dotenv/config ./dist/main.js"]
