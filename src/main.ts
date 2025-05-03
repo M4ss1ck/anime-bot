@@ -11,6 +11,7 @@ import ping from './middleware/ping.js'
 import broadcast from './middleware/broadcast.js'
 import commandLogger from './middleware/commandLogger.js'
 import { scheduler } from './middleware/scheduler.js'
+import notify from './middleware/notify.js'
 import { runScheduled } from './utils/index.js'
 
 const bot = new Telegraf(process.env.BOT_TOKEN ?? '')
@@ -27,12 +28,13 @@ bot
     .use(inline)
     .use(broadcast)
     .use(scheduler)
+    .use(notify)
 
 const commandList = await bot.telegram
     .getMyCommands()
     .catch((e) => logger.error(e));
 
-const latestCommand = 'ping'
+const latestCommand = 'notify_on'
 if (commandList && !commandList.some((command) => command.command === latestCommand)) {
     bot.telegram.setMyCommands([
         {
@@ -86,10 +88,24 @@ if (commandList && !commandList.some((command) => command.command === latestComm
         {
             command: "ping",
             description: "pong!"
+        },
+        {
+            command: "notify",
+            description: "Activate daily anime summaries in this group."
+        },
+        {
+            command: "opt_in",
+            description: "Opt-in to receive daily anime summaries in this group."
+        },
+        {
+            command: "notify_on",
+            description: "Preview anime summary for a specific day (e.g. /notify_on monday)."
         }
-    ]);
+    ])
+        .then(() => logger.info("Command list updated."))
+        .catch((e) => logger.error("Failed to update command list:", e));
 } else {
-    logger.info("No need to update commands");
+    logger.info("Bot commands are up-to-date. No update needed.");
 }
 
 // Iniciar bot
