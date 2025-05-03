@@ -38,4 +38,4 @@ COPY --from=builder /app/package.json ./package.json
 EXPOSE 3000
 
 # Command to run the application
-CMD ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && node -r dotenv/config ./dist/main.js"]
+CMD ["node", "-r", "dotenv/config", "./dist/main.js"]
