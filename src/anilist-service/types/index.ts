@@ -46,6 +46,21 @@ export type NovelFull = {
     volumes: number
     format: string
     source: string
+    relations?: {
+        edges: {
+            relationType: string
+            node: {
+                id: number
+                type: string
+                title: {
+                    romaji: string
+                    english: string
+                    native: string
+                }
+                status: string
+            }
+        }[]
+    }
 } & Anime
 
 export type Character = {

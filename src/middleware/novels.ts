@@ -697,6 +697,7 @@ novel.action(/nfm_\d+_\d+/i, async ctx => {
                     },
                     create: {
                         name: novel.title.english.trim(),
+                        anilistId: novel.id,
                         volume: 1,
                         note,
                         releasing: /releasing/i.test(novel.status) ? true : false,
@@ -713,6 +714,7 @@ novel.action(/nfm_\d+_\d+/i, async ctx => {
                     },
                     update: {
                         note,
+                        anilistId: novel.id,
                     }
                 })
                 .then(() => ctx.answerCbQuery('Anime added/updated!').catch(logger.error))

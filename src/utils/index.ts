@@ -5,7 +5,7 @@ import { Markup } from "telegraf"
 import { logger } from "../logger/index.js"
 import dayjs from 'dayjs'
 import { sendDailySummaries } from "../middleware/notify.js"
-import { checkNewSeasons } from "../middleware/notifications.js"
+import { checkNewSeasons, checkNewNovelReleases } from "../middleware/notifications.js"
 
 export const padTo2Digits = (num: number) => {
     return num.toString().padStart(2, '0')
@@ -128,8 +128,11 @@ export const runScheduled = async (bot: Telegraf) => {
         await scheduled(
             newSeasonCheckJobId,
             cronExpression,
-            () => checkNewSeasons(bot),
-            'New Season Check'
+            () => {
+                checkNewSeasons(bot)
+                checkNewNovelReleases(bot)
+            },
+            'New Season/Novel Check'
         );
         logger.success(`Scheduled new season check with ID: ${newSeasonCheckJobId} (${cronExpression})`);
     } catch (error) {
