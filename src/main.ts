@@ -102,6 +102,14 @@ if (commandList && !commandList.some((command) => command.command === latestComm
         {
             command: "notify_on",
             description: "Preview anime summary for a specific day (e.g. /notify_on monday)."
+        },
+        {
+            command: "check",
+            description: "Check for new seasons/volumes manually."
+        },
+        {
+            command: "nsave",
+            description: "Save novel progress."
         }
     ])
         .then(() => logger.info("Command list updated."))

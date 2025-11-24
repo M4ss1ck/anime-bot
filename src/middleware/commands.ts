@@ -16,7 +16,30 @@ commands.start(async ctx => {
 
 commands.help(async ctx => {
     return ctx.replyWithHTML(
-        `Hi, ${ctx.from.first_name}!\nType <code>/save numberOfSeason numberOfEpisode nameOfAnime</code> to store anime in the database so you can remember where you left it <i>(very useful if you see a lot of anime)</i>.\n\nYou can also add a note using a new line.\nExample:\n<pre>/save 1 13 Spy X Family\nWatching with my gf</pre>\n\nThen using <code>/myanime</code> you can see the full list of anime you stored\n\nThere are other commands to search in Anilist:\n/anime &lt;name of anime> - look for anime\n/animebd - returns a list of characters whose birthday is today\n/character &lt;name of character> - look for character`
+        `Hi, ${ctx.from.first_name}!\n\n` +
+        `<b>📺 Anime Management</b>\n` +
+        `<code>/save &lt;season&gt; &lt;episode&gt; &lt;name&gt;</code> - Save anime progress\n` +
+        `<i>(season and episode must be numbers)</i>\n` +
+        `You can add a note on a new line. Example:\n` +
+        `<pre>/save 1 13 Spy X Family\nWatching with my gf</pre>\n` +
+        `<code>/myanime</code> - List your saved anime\n` +
+        `<code>/onair</code> - List your saved anime that are currently airing\n` +
+        `<code>/import</code> - Import anime list (reply to a .txt file)\n\n` +
+        `<b>📖 Novel Management</b>\n` +
+        `<code>/nsave &lt;part/vol/ch&gt; &lt;name&gt;</code> - Save novel progress\n` +
+        `<i>(part/vol/ch must be a number)</i>\n` +
+        `<code>/mynovels</code> - List your saved novels\n` +
+        `<code>/releasing</code> - List your saved novels that are releasing\n\n` +
+        `<b>🔍 Search</b>\n` +
+        `<code>/anime &lt;name&gt;</code> - Search for anime\n` +
+        `<code>/novel &lt;name&gt;</code> - Search for novels\n` +
+        `<code>/character &lt;name&gt;</code> - Search for characters\n` +
+        `<code>/animebd</code> - Characters with birthdays today\n\n` +
+        `<b>🔔 Notifications</b>\n` +
+        `<code>/check</code> - Check for new seasons/volumes manually\n` +
+        `<code>/notify</code> - Activate daily summaries in this group\n` +
+        `<code>/opt_in</code> - Opt-in for daily summaries\n` +
+        `<code>/notify_on &lt;day&gt;</code> - Preview summary for a specific day`
     )
 })
 
