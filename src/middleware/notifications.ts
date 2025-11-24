@@ -4,16 +4,23 @@ import { getAnimeRelations, getNovelRelations } from "../anilist-service/index.j
 import { logger } from "../logger/index.js"
 import { escape } from "../utils/index.js"
 
-export const checkNewSeasons = async (bot: Telegraf, fetcher = getAnimeRelations) => {
-  logger.info('Checking for new seasons...')
+export const checkNewSeasons = async (bot: Telegraf, fetcher = getAnimeRelations, targetUserId?: string) => {
+  logger.info(`Checking for new seasons... ${targetUserId ? `(Target: ${targetUserId})` : ''}`)
   try {
     // Get all unique anilistIds from the database
+    // If targetUserId is provided, only get animes for that user
+    const whereClause: any = {
+      anilistId: {
+        not: null
+      }
+    }
+
+    if (targetUserId) {
+      whereClause.userId = targetUserId
+    }
+
     const animes = await prisma.anime.findMany({
-      where: {
-        anilistId: {
-          not: null
-        }
-      },
+      where: whereClause,
       select: {
         anilistId: true
       },
@@ -36,10 +43,16 @@ export const checkNewSeasons = async (bot: Telegraf, fetcher = getAnimeRelations
 
             if (sequel.status === 'RELEASING' || sequel.status === 'NOT_YET_RELEASED') {
               // Find users who track the original anime
+              const userWhereClause: any = {
+                anilistId: animeRecord.anilistId
+              }
+
+              if (targetUserId) {
+                userWhereClause.userId = targetUserId
+              }
+
               const usersTrackingOriginal = await prisma.anime.findMany({
-                where: {
-                  anilistId: animeRecord.anilistId
-                },
+                where: userWhereClause,
                 select: {
                   userId: true
                 }
@@ -99,15 +112,21 @@ export const checkNewSeasons = async (bot: Telegraf, fetcher = getAnimeRelations
   }
 }
 
-export const checkNewNovelReleases = async (bot: Telegraf, fetcher = getNovelRelations) => {
-  logger.info('Checking for new novel releases...')
+export const checkNewNovelReleases = async (bot: Telegraf, fetcher = getNovelRelations, targetUserId?: string) => {
+  logger.info(`Checking for new novel releases... ${targetUserId ? `(Target: ${targetUserId})` : ''}`)
   try {
+    const whereClause: any = {
+      anilistId: {
+        not: null
+      }
+    }
+
+    if (targetUserId) {
+      whereClause.userId = targetUserId
+    }
+
     const novels = await prisma.novel.findMany({
-      where: {
-        anilistId: {
-          not: null
-        }
-      },
+      where: whereClause,
       select: {
         anilistId: true
       },
@@ -129,11 +148,16 @@ export const checkNewNovelReleases = async (bot: Telegraf, fetcher = getNovelRel
             // For novels, status might be RELEASING even if it's just a new volume.
             // But here we are looking for *new entries* in AniList (e.g. Part 2, Sequel).
             if (sequel.status === 'RELEASING' || sequel.status === 'NOT_YET_RELEASED') {
+              const userWhereClause: any = {
+                anilistId: novelRecord.anilistId
+              }
+
+              if (targetUserId) {
+                userWhereClause.userId = targetUserId
+              }
 
               const usersTrackingOriginal = await prisma.novel.findMany({
-                where: {
-                  anilistId: novelRecord.anilistId
-                },
+                where: userWhereClause,
                 select: {
                   userId: true
                 }

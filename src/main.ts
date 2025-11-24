@@ -12,6 +12,7 @@ import broadcast from './middleware/broadcast.js'
 import commandLogger from './middleware/commandLogger.js'
 import { scheduler } from './middleware/scheduler.js'
 import notify from './middleware/notify.js'
+import check from './middleware/check.js'
 import { runScheduled } from './utils/index.js'
 
 const bot = new Telegraf(process.env.BOT_TOKEN ?? '')
@@ -26,6 +27,7 @@ bot
     .use(commands)
     .use(actions)
     .use(inline)
+    .use(check)
     .use(broadcast)
     .use(scheduler)
     .use(notify)
