@@ -5,6 +5,7 @@ import { Markup } from "telegraf"
 import { logger } from "../logger/index.js"
 import dayjs from 'dayjs'
 import { sendDailySummaries } from "../middleware/notify.js"
+import { checkNewSeasons } from "../middleware/notifications.js"
 
 export const padTo2Digits = (num: number) => {
     return num.toString().padStart(2, '0')
@@ -117,6 +118,24 @@ export const runScheduled = async (bot: Telegraf) => {
         logger.error('Failed to schedule the daily anime summary job:', error);
     }
     // --- End Daily Summary Scheduling ---
+
+    // --- Schedule New Season Check ---
+    try {
+        logger.info('Scheduling new season check job...');
+        const newSeasonCheckJobId = 'internal:new_season_check';
+        const cronExpression = '0 8 * * *'; // Run daily at 8:00 AM server time
+
+        await scheduled(
+            newSeasonCheckJobId,
+            cronExpression,
+            () => checkNewSeasons(bot),
+            'New Season Check'
+        );
+        logger.success(`Scheduled new season check with ID: ${newSeasonCheckJobId} (${cronExpression})`);
+    } catch (error) {
+        logger.error('Failed to schedule the new season check job:', error);
+    }
+    // --- End New Season Check Scheduling ---
 }
 
 /**

@@ -286,4 +286,39 @@ async function getCharacter(id: number) {
   return character
 }
 
-export { genericQuery, getAnime, getAnimes, getCharacter, getCharacters, getIsBirthdayCharacters, getNovels, getNovel }
+async function getAnimeRelations(id: number) {
+  const query = `
+        query ($id: Int) {
+            Media (id: $id, type: ANIME) {
+              id
+              relations {
+                edges {
+                  relationType
+                  node {
+                    id
+                    type
+                    title {
+                      romaji
+                      english
+                      native
+                    }
+                    status
+                    nextAiringEpisode {
+                        airingAt
+                        episode
+                    }
+                  }
+                }
+              }
+            }
+        }
+    `
+  const variables = {
+    id,
+  }
+
+  const anime: SpecificAnime = await genericQuery(query, variables)
+  return anime
+}
+
+export { genericQuery, getAnime, getAnimes, getCharacter, getCharacters, getIsBirthdayCharacters, getNovels, getNovel, getAnimeRelations }

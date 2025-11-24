@@ -24,6 +24,13 @@ export type AnimeFull = {
         medium: string
         color: string
     }
+    status: string
+    relations?: {
+        edges: {
+            relationType: string
+            node: AnimeFull
+        }[]
+    }
 } & Anime
 
 export type NovelFull = {

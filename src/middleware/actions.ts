@@ -404,6 +404,7 @@ actions.action(/afm_\d+_\d+_\d+_\d+/i, async ctx => {
                     },
                     create: {
                         name: anime.title.english.trim(),
+                        anilistId: anime.id,
                         season: parseInt(season),
                         episode: parseInt(episode),
                         note,
@@ -421,6 +422,7 @@ actions.action(/afm_\d+_\d+_\d+_\d+/i, async ctx => {
                     },
                     update: {
                         note,
+                        anilistId: anime.id,
                         onAir: anime.nextAiringEpisode?.airingAt ? true : false,
                     }
                 })
