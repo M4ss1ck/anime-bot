@@ -44,8 +44,12 @@ COPY --from=builder /app/node_modules ./node_modules
 # Copy built application
 COPY --from=builder /app/dist ./dist
 
+# Copy startup script
+COPY --from=builder /app/scripts ./scripts
+RUN chmod +x ./scripts/start.sh
+
 # Expose the port the app runs on
 EXPOSE 3000
 
 # Command to run the application - syncs database schema before starting
-CMD ["sh", "-c", "pnpm exec prisma db push --skip-generate && node -r dotenv/config ./dist/main.js"]
+CMD ["./scripts/start.sh"]
