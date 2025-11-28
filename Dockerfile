@@ -37,5 +37,5 @@ COPY --from=builder /app/package.json ./package.json
 # Expose the port the app runs on
 EXPOSE 3000
 
-# Command to run the application
-CMD ["node", "-r", "dotenv/config", "./dist/main.js"]
+# Command to run the application - syncs database schema before starting
+CMD ["npm", "run", "start:prod"]
