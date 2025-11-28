@@ -48,6 +48,9 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/scripts ./scripts
 RUN chmod +x ./scripts/start.sh
 
+# Regenerate Prisma Client to ensure it's in the correct location for pnpm
+RUN pnpm exec prisma generate
+
 # Expose the port the app runs on
 EXPOSE 3000
 

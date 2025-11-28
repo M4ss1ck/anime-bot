@@ -8,9 +8,9 @@ echo "DATABASE_URL: $DATABASE_URL"
 echo "=== Checking migration status ==="
 pnpm exec prisma migrate status || true
 
-# Force push schema changes (--accept-data-loss allows column additions)
+# Push schema changes WITHOUT regenerating the client
 echo "=== Pushing schema to database ==="
-pnpm exec prisma db push --accept-data-loss
+pnpm exec prisma db push --skip-generate --accept-data-loss
 
 # Verify the Anime table has anilistId column
 echo "=== Verifying schema ==="
