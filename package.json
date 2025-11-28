@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "prisma generate && tsc -p ./tsconfig.json && node -r dotenv/config ./dist/main.js",
-    "start:prod": "prisma generate && prisma db push && node -r dotenv/config ./dist/main.js",
+    "start:prod": "prisma db push --skip-generate && node -r dotenv/config ./dist/main.js",
     "build": "prisma generate && tsc -p ./tsconfig.json",
     "validate": "prisma validate",
     "db-pull": "prisma db pull",

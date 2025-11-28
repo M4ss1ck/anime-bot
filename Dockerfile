@@ -7,17 +7,17 @@ WORKDIR /app
 # Install OpenSSL (required by Prisma)
 RUN apk add --no-cache openssl
 
-# Copy package.json and package-lock.json
-COPY package*.json ./
+# Copy package.json and pnpm-lock.yaml
+COPY package*.json pnpm-lock.yaml ./
 
-# Install dependencies
-RUN npm install
+# Install pnpm and dependencies
+RUN npm install -g pnpm && pnpm install --frozen-lockfile
 
 # Copy the rest of the application code
 COPY . .
 
 # Generate Prisma client and build TypeScript
-RUN npm run build
+RUN pnpm run build
 
 # Stage 2: Production stage
 FROM node:18-alpine
@@ -28,14 +28,24 @@ WORKDIR /app
 # Install OpenSSL (required by Prisma at runtime)
 RUN apk add --no-cache openssl
 
-# Copy only necessary files from the builder stage
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/prisma ./prisma
+# Install pnpm globally
+RUN npm install -g pnpm
+
+# Copy package files first
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
+
+# Copy prisma schema (needed for db push at runtime)
+COPY --from=builder /app/prisma ./prisma
+
+# Copy node_modules from builder (includes generated Prisma client)
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copy built application
+COPY --from=builder /app/dist ./dist
 
 # Expose the port the app runs on
 EXPOSE 3000
 
 # Command to run the application - syncs database schema before starting
-CMD ["npm", "run", "start:prod"]
+CMD ["sh", "-c", "pnpm exec prisma db push --skip-generate && node -r dotenv/config ./dist/main.js"]
