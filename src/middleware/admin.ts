@@ -26,33 +26,23 @@ admin.command('users', Composer.acl(Number(adminID), async ctx => {
     await fs.unlink(fileName).catch(logger.error)
 }))
 
-// Export entire database to JSON file
+// Export entire database to JSON file (uses raw SQL to handle schema mismatches)
 admin.command('dbexport', Composer.acl(Number(adminID), async ctx => {
     try {
-        await ctx.reply('📦 Exporting database...')
+        await ctx.reply('📦 Exporting database using raw SQL...')
 
-        // Fetch all data
-        const users = await prisma.user.findMany({
-            include: {
-                notificationGroups: {
-                    select: { groupId: true }
-                }
-            }
-        })
+        // Use raw SQL queries to export data regardless of Prisma client schema
+        const users = await prisma.$queryRawUnsafe<Array<{ id: string }>>('SELECT * FROM User')
+        const animes = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>('SELECT * FROM Anime')
+        const novels = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>('SELECT * FROM Novel')
+        const jobs = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>('SELECT * FROM Job')
+        const notificationGroups = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>('SELECT * FROM NotificationGroup')
+        const notificationHistory = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>('SELECT * FROM NotificationHistory')
 
-        const animes = await prisma.anime.findMany()
-        const novels = await prisma.novel.findMany()
-        const jobs = await prisma.job.findMany()
-
-        const notificationGroups = await prisma.notificationGroup.findMany({
-            include: {
-                users: {
-                    select: { id: true }
-                }
-            }
-        })
-
-        const notificationHistory = await prisma.notificationHistory.findMany()
+        // Get the many-to-many relationship between Users and NotificationGroups
+        const userNotificationGroups = await prisma.$queryRawUnsafe<Array<{ A: string, B: number }>>(
+            'SELECT * FROM _NotificationGroupToUser'
+        ).catch(() => [] as Array<{ A: string, B: number }>)
 
         // Build export object
         const exportData = {
@@ -69,30 +59,37 @@ admin.command('dbexport', Composer.acl(Number(adminID), async ctx => {
             data: {
                 users: users.map(u => ({
                     id: u.id,
-                    notificationGroupIds: u.notificationGroups.map(ng => ng.groupId)
+                    // Find notification groups for this user from the junction table
+                    notificationGroupIds: userNotificationGroups
+                        .filter(ung => ung.A === u.id)
+                        .map(ung => {
+                            const ng = notificationGroups.find(g => g.id === ung.B)
+                            return ng?.groupId as string
+                        })
+                        .filter(Boolean)
                 })),
                 animes: animes.map(a => ({
                     id: a.id,
                     name: a.name,
-                    anilistId: a.anilistId,
+                    anilistId: a.anilistId ?? null,
                     season: a.season,
                     episode: a.episode,
-                    onAir: a.onAir,
-                    note: a.note,
+                    onAir: a.onAir ?? false,
+                    note: a.note ?? null,
                     userId: a.userId,
-                    updatedAt: a.updatedAt?.toISOString() ?? null,
+                    updatedAt: a.updatedAt ?? null,
                 })),
                 novels: novels.map(n => ({
                     id: n.id,
                     name: n.name,
-                    anilistId: n.anilistId,
-                    volume: n.volume,
-                    chapter: n.chapter,
-                    part: n.part,
-                    releasing: n.releasing,
-                    note: n.note,
+                    anilistId: n.anilistId ?? null,
+                    volume: n.volume ?? null,
+                    chapter: n.chapter ?? null,
+                    part: n.part ?? null,
+                    releasing: n.releasing ?? false,
+                    note: n.note ?? '',
                     userId: n.userId,
-                    updatedAt: n.updatedAt?.toISOString() ?? null,
+                    updatedAt: n.updatedAt ?? null,
                 })),
                 jobs: jobs.map(j => ({
                     id: j.id,
@@ -102,15 +99,18 @@ admin.command('dbexport', Composer.acl(Number(adminID), async ctx => {
                 notificationGroups: notificationGroups.map(ng => ({
                     id: ng.id,
                     groupId: ng.groupId,
-                    userIds: ng.users.map(u => u.id),
-                    createdAt: ng.createdAt.toISOString(),
-                    updatedAt: ng.updatedAt.toISOString(),
+                    // Find users for this notification group from the junction table
+                    userIds: userNotificationGroups
+                        .filter(ung => ung.B === ng.id)
+                        .map(ung => ung.A),
+                    createdAt: ng.createdAt,
+                    updatedAt: ng.updatedAt,
                 })),
                 notificationHistory: notificationHistory.map(nh => ({
                     id: nh.id,
                     userId: nh.userId,
                     animeId: nh.animeId,
-                    createdAt: nh.createdAt.toISOString(),
+                    createdAt: nh.createdAt,
                 })),
             }
         }
@@ -135,7 +135,7 @@ admin.command('dbexport', Composer.acl(Number(adminID), async ctx => {
         await fs.unlink(fileName).catch(logger.error)
     } catch (error) {
         logger.error(error)
-        await ctx.reply('❌ Export failed. Check logs for details.')
+        await ctx.reply('❌ Export failed: ' + String(error))
     }
 }))
 
