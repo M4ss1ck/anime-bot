@@ -31,18 +31,26 @@ admin.command('dbexport', Composer.acl(Number(adminID), async ctx => {
     try {
         await ctx.reply('📦 Exporting database using raw SQL...')
 
+        // Helper function to safely query a table (returns empty array if table doesn't exist)
+        const safeQuery = async <T>(table: string): Promise<T[]> => {
+            try {
+                return await prisma.$queryRawUnsafe<T[]>(`SELECT * FROM ${table}`)
+            } catch (error) {
+                logger.warn(`Table ${table} not found or error querying: ${error}`)
+                return []
+            }
+        }
+
         // Use raw SQL queries to export data regardless of Prisma client schema
-        const users = await prisma.$queryRawUnsafe<Array<{ id: string }>>('SELECT * FROM User')
-        const animes = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>('SELECT * FROM Anime')
-        const novels = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>('SELECT * FROM Novel')
-        const jobs = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>('SELECT * FROM Job')
-        const notificationGroups = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>('SELECT * FROM NotificationGroup')
-        const notificationHistory = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>('SELECT * FROM NotificationHistory')
+        const users = await safeQuery<{ id: string }>('User')
+        const animes = await safeQuery<Record<string, unknown>>('Anime')
+        const novels = await safeQuery<Record<string, unknown>>('Novel')
+        const jobs = await safeQuery<Record<string, unknown>>('Job')
+        const notificationGroups = await safeQuery<Record<string, unknown>>('NotificationGroup')
+        const notificationHistory = await safeQuery<Record<string, unknown>>('NotificationHistory')
 
         // Get the many-to-many relationship between Users and NotificationGroups
-        const userNotificationGroups = await prisma.$queryRawUnsafe<Array<{ A: string, B: number }>>(
-            'SELECT * FROM _NotificationGroupToUser'
-        ).catch(() => [] as Array<{ A: string, B: number }>)
+        const userNotificationGroups = await safeQuery<{ A: string, B: number }>('_NotificationGroupToUser')
 
         // Build export object
         const exportData = {
