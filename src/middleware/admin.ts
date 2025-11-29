@@ -184,99 +184,113 @@ admin.command('dbimport', Composer.acl(Number(adminID), async ctx => {
 
 ⏳ Starting import... This may take a while.`)
 
+        // Helper to safely delete from a table using raw SQL
+        const safeDeleteAll = async (table: string): Promise<void> => {
+            try {
+                await prisma.$executeRawUnsafe(`DELETE FROM ${table}`)
+                logger.info(`Cleared table ${table}`)
+            } catch (error) {
+                logger.warn(`Table ${table} not found or error clearing: ${error}`)
+            }
+        }
+
+        // Helper to safely insert using raw SQL
+        const safeInsert = async (table: string, columns: string[], values: unknown[]): Promise<void> => {
+            try {
+                const placeholders = columns.map(() => '?').join(', ')
+                const sql = `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`
+                await prisma.$executeRawUnsafe(sql, ...values)
+            } catch (error) {
+                logger.warn(`Failed to insert into ${table}: ${error}`)
+            }
+        }
+
         // Clear existing data (in correct order due to foreign keys)
         logger.info('Clearing existing data...')
-        await prisma.notificationHistory.deleteMany()
-        await prisma.anime.deleteMany()
-        await prisma.novel.deleteMany()
-        await prisma.job.deleteMany()
-        await prisma.notificationGroup.deleteMany()
-        await prisma.user.deleteMany()
+        await safeDeleteAll('NotificationHistory')
+        await safeDeleteAll('Anime')
+        await safeDeleteAll('Novel')
+        await safeDeleteAll('Job')
+        await safeDeleteAll('_NotificationGroupToUser')
+        await safeDeleteAll('NotificationGroup')
+        await safeDeleteAll('User')
 
         // Import Users first
         logger.info('Importing users...')
         for (const user of exportData.data.users) {
-            await prisma.user.create({
-                data: { id: user.id }
-            })
+            await safeInsert('User', ['id'], [user.id])
         }
 
         // Import Animes
         logger.info('Importing animes...')
         for (const anime of exportData.data.animes) {
-            await prisma.anime.create({
-                data: {
-                    name: anime.name,
-                    anilistId: anime.anilistId,
-                    season: anime.season,
-                    episode: anime.episode,
-                    onAir: anime.onAir,
-                    note: anime.note,
-                    userId: anime.userId,
-                }
-            })
+            await safeInsert('Anime',
+                ['name', 'anilistId', 'season', 'episode', 'onAir', 'note', 'userId'],
+                [anime.name, anime.anilistId, anime.season, anime.episode, anime.onAir ? 1 : 0, anime.note, anime.userId]
+            )
         }
 
         // Import Novels
         logger.info('Importing novels...')
         for (const novel of exportData.data.novels) {
-            await prisma.novel.create({
-                data: {
-                    name: novel.name,
-                    anilistId: novel.anilistId,
-                    volume: novel.volume,
-                    chapter: novel.chapter,
-                    part: novel.part,
-                    releasing: novel.releasing,
-                    note: novel.note,
-                    userId: novel.userId,
-                }
-            })
+            await safeInsert('Novel',
+                ['name', 'anilistId', 'volume', 'chapter', 'part', 'releasing', 'note', 'userId'],
+                [novel.name, novel.anilistId, novel.volume, novel.chapter, novel.part, novel.releasing ? 1 : 0, novel.note, novel.userId]
+            )
         }
 
         // Import Jobs
         logger.info('Importing jobs...')
         for (const job of exportData.data.jobs) {
-            await prisma.job.create({
-                data: {
-                    id: job.id,
-                    date: job.date,
-                    text: job.text,
-                }
-            })
+            await safeInsert('Job', ['id', 'date', 'text'], [job.id, job.date, job.text])
         }
 
-        // Import NotificationGroups with user connections
+        // Import NotificationGroups
         logger.info('Importing notification groups...')
         for (const ng of exportData.data.notificationGroups) {
-            await prisma.notificationGroup.create({
-                data: {
-                    groupId: ng.groupId,
-                    users: {
-                        connect: ng.userIds.map((id: string) => ({ id }))
-                    }
+            await safeInsert('NotificationGroup',
+                ['groupId', 'createdAt', 'updatedAt'],
+                [ng.groupId, ng.createdAt || new Date().toISOString(), ng.updatedAt || new Date().toISOString()]
+            )
+
+            // Get the ID of the just-inserted notification group
+            const inserted = await prisma.$queryRawUnsafe<Array<{ id: number }>>(
+                `SELECT id FROM NotificationGroup WHERE groupId = ?`, ng.groupId
+            ).catch(() => [])
+
+            if (inserted.length > 0 && ng.userIds) {
+                // Insert into junction table
+                for (const userId of ng.userIds) {
+                    await safeInsert('_NotificationGroupToUser', ['A', 'B'], [userId, inserted[0].id])
                 }
-            })
+            }
         }
 
         // Import NotificationHistory
         logger.info('Importing notification history...')
         for (const nh of exportData.data.notificationHistory) {
-            await prisma.notificationHistory.create({
-                data: {
-                    userId: nh.userId,
-                    animeId: nh.animeId,
-                }
-            })
+            await safeInsert('NotificationHistory',
+                ['userId', 'animeId', 'createdAt'],
+                [nh.userId, nh.animeId, nh.createdAt || new Date().toISOString()]
+            )
         }
 
-        // Verify counts
-        const userCount = await prisma.user.count()
-        const animeCount = await prisma.anime.count()
-        const novelCount = await prisma.novel.count()
-        const jobCount = await prisma.job.count()
-        const ngCount = await prisma.notificationGroup.count()
-        const nhCount = await prisma.notificationHistory.count()
+        // Verify counts using raw SQL
+        const count = async (table: string): Promise<number> => {
+            try {
+                const result = await prisma.$queryRawUnsafe<Array<{ count: number }>>(`SELECT COUNT(*) as count FROM ${table}`)
+                return Number(result[0]?.count ?? 0)
+            } catch {
+                return 0
+            }
+        }
+
+        const userCount = await count('User')
+        const animeCount = await count('Anime')
+        const novelCount = await count('Novel')
+        const jobCount = await count('Job')
+        const ngCount = await count('NotificationGroup')
+        const nhCount = await count('NotificationHistory')
 
         await ctx.reply(`✅ Import completed!
 
