@@ -2,15 +2,20 @@
 set -e
 
 echo "=== Database Startup Script ==="
-echo "DATABASE_URL: $DATABASE_URL"
+
+# Trim any whitespace from DATABASE_URL
+DATABASE_URL=$(echo "$DATABASE_URL" | tr -d '[:space:]' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+export DATABASE_URL
+
+echo "DATABASE_URL: '$DATABASE_URL'"
 
 # Show current schema status
 echo "=== Checking migration status ==="
 pnpm exec prisma migrate status || true
 
-# Push schema changes WITHOUT regenerating the client
+# Push schema changes to database
 echo "=== Pushing schema to database ==="
-pnpm exec prisma db push --skip-generate --accept-data-loss
+pnpm exec prisma db push --accept-data-loss
 
 # Verify the Anime table has anilistId column
 echo "=== Verifying schema ==="

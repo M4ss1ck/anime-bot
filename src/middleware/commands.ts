@@ -2,7 +2,7 @@ import { Composer, Markup } from "telegraf"
 import axios from "axios"
 import { prisma } from "../db/prisma.js"
 import { logger } from "../logger/index.js"
-import type { Anime } from "@prisma/client"
+import type { Anime } from "../generated/prisma/client.js"
 
 import { padTo2Digits, escape } from "../utils/index.js"
 

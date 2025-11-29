@@ -1,5 +1,5 @@
 # Stage 1: Build stage
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -20,7 +20,7 @@ COPY . .
 RUN pnpm run build
 
 # Stage 2: Production stage
-FROM node:18-alpine
+FROM node:22-alpine
 
 # Set working directory
 WORKDIR /app
@@ -35,8 +35,9 @@ RUN npm install -g pnpm
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
 
-# Copy prisma schema (needed for db push at runtime)
+# Copy prisma schema and config (needed for db push at runtime)
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
 # Copy node_modules from builder (includes generated Prisma client)
 COPY --from=builder /app/node_modules ./node_modules
@@ -47,9 +48,6 @@ COPY --from=builder /app/dist ./dist
 # Copy startup script
 COPY --from=builder /app/scripts ./scripts
 RUN chmod +x ./scripts/start.sh
-
-# Regenerate Prisma Client to ensure it's in the correct location for pnpm
-RUN pnpm exec prisma generate
 
 # Expose the port the app runs on
 EXPOSE 3000
