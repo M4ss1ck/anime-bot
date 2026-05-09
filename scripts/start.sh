@@ -1,27 +1,22 @@
 #!/bin/sh
 set -e
 
-echo "=== Database Startup Script ==="
+echo "=== Bot Startup ==="
 
-# Trim any whitespace from DATABASE_URL
-DATABASE_URL=$(echo "$DATABASE_URL" | tr -d '[:space:]' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-export DATABASE_URL
+# Trim whitespace from TURSO_DATABASE_URL
+TURSO_DATABASE_URL=$(echo "$TURSO_DATABASE_URL" | tr -d '[:space:]' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+export TURSO_DATABASE_URL
 
-echo "DATABASE_URL: '$DATABASE_URL'"
+if [ -z "$TURSO_DATABASE_URL" ]; then
+    echo "ERROR: TURSO_DATABASE_URL is not set" >&2
+    exit 1
+fi
 
-# Show current schema status
-echo "=== Checking migration status ==="
-pnpm exec prisma migrate status || true
+# Mask token / URL host for the log line
+echo "TURSO_DATABASE_URL: ${TURSO_DATABASE_URL%%\?*}"
 
-# Push schema changes to database
-echo "=== Pushing schema to database ==="
-pnpm exec prisma db push --accept-data-loss
-
-# Verify the Anime table has anilistId column
-echo "=== Verifying schema ==="
-pnpm exec prisma db execute --stdin <<EOF || true
-SELECT sql FROM sqlite_master WHERE type='table' AND name='Anime';
-EOF
+# Schema migrations are NOT run here — the Prisma CLI cannot push to Turso URLs.
+# Run scripts/sync-turso-schema.ts manually after schema changes (see PRISMA.md).
 
 echo "=== Starting application ==="
 exec node -r dotenv/config ./dist/main.js

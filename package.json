@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "prisma generate && tsc -p ./tsconfig.json && node -r dotenv/config ./dist/main.js",
-    "start:prod": "prisma db push --skip-generate && node -r dotenv/config ./dist/main.js",
+    "start:prod": "node -r dotenv/config ./dist/main.js",
+    "turso:sync-schema": "node scripts/sync-turso-schema.mjs",
     "build": "prisma generate && tsc -p ./tsconfig.json",
     "validate": "prisma validate",
     "db-pull": "prisma db pull",
@@ -21,7 +22,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@prisma/adapter-better-sqlite3": "^7.0.1",
+    "@libsql/client": "^0.15.0",
+    "@prisma/adapter-libsql": "^7.0.1",
     "@prisma/client": "^7.0.1",
     "axios": "^1.1.2",
     "dayjs": "^1.11.6",
@@ -47,7 +49,6 @@
     "onlyBuiltDependencies": [
       "@prisma/client",
       "@prisma/engines",
-      "better-sqlite3",
       "prisma"
     ]
   }

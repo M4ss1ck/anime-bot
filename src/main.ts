@@ -7,6 +7,7 @@ import commands from './middleware/commands.js'
 import actions from './middleware/actions.js'
 import inline from './middleware/inline.js'
 import admin from './middleware/admin.js'
+import exporter from './middleware/exporter.js'
 import ping from './middleware/ping.js'
 import broadcast from './middleware/broadcast.js'
 import commandLogger from './middleware/commandLogger.js'
@@ -21,6 +22,7 @@ bot
     // .use(users)
     .use(commandLogger)
     .use(admin)
+    .use(exporter)
     .use(ping)
     .use(anime)
     .use(novel)
@@ -36,7 +38,7 @@ const commandList = await bot.telegram
     .getMyCommands()
     .catch((e) => logger.error(e));
 
-const latestCommand = 'notify_on'
+const latestCommand = 'export'
 if (commandList && !commandList.some((command) => command.command === latestCommand)) {
     bot.telegram.setMyCommands([
         {
@@ -110,6 +112,10 @@ if (commandList && !commandList.some((command) => command.command === latestComm
         {
             command: "nsave",
             description: "Save novel progress."
+        },
+        {
+            command: "export",
+            description: "Export your data (anime, novels, reminders) as a JSON file."
         }
     ])
         .then(() => logger.info("Command list updated."))
