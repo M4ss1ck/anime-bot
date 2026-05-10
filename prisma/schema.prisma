@@ -19,32 +19,52 @@ model User {
 }
 
 model Anime {
-  id        Int       @id @default(autoincrement())
-  name      String
-  anilistId Int?
-  season    Int
-  episode   Int
-  onAir     Boolean?  @default(false)
-  note      String?
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  updatedAt DateTime? @updatedAt
+  id              Int       @id @default(autoincrement())
+  name            String
+  anilistId       Int?
+  season          Int
+  episode         Int
+  onAir           Boolean?  @default(false)
+  note            String?
+  detailsProvider String?
+  detailsId       String?
+  detailsUrl      String?
+  coverImageUrl   String?
+  status          String?
+  genres          String?
+  description     String?
+  totalEpisodes   Int?
+  streamingUrl    String?
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedAt       DateTime? @updatedAt
 
   @@unique([name, userId])
 }
 
 model Novel {
-  id        Int       @id @default(autoincrement())
-  name      String
-  anilistId Int?
-  volume    Float?
-  chapter   Int?
-  part      Int?
-  releasing Boolean   @default(false)
-  note      String    @default("")
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  updatedAt DateTime? @updatedAt
+  id              Int       @id @default(autoincrement())
+  name            String
+  anilistId       Int?
+  volume          Float?
+  chapter         Int?
+  part            Int?
+  releasing       Boolean   @default(false)
+  note            String    @default("")
+  detailsProvider String?
+  detailsId       String?
+  detailsUrl      String?
+  coverImageUrl   String?
+  status          String?
+  genres          String?
+  description     String?
+  totalVolumes    Int?
+  totalChapters   Int?
+  authors         String?
+  source          String?
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedAt       DateTime? @updatedAt
 
   @@unique([name, userId])
 }

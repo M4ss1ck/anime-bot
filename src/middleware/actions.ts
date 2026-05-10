@@ -6,6 +6,7 @@ import * as fs from 'fs/promises'
 
 import { padTo2Digits, escapeHtml } from "../utils/index.js"
 import { getAnime } from "../anilist-service/index.js"
+import { getBestDetails, getDetailsByProvider, searchDetails, summarizeDetails, toAnimeUpdate } from "../details-service/index.js"
 
 const actions = new Composer()
 
@@ -43,6 +44,9 @@ actions.action(/animeInfo_\d+_\d+(_\w+)?/i, async ctx => {
                 ])
                 buttons.push([
                     Markup.button.callback(`On Air: ${anime && anime.onAir ? '✅' : '❌'}`, `toggleOnAir_${animeId}_${userId}_${anime && anime.onAir ? 'off' : 'on'}${onlyAiring ? '_airing' : ''}`)
+                ])
+                buttons.push([
+                    Markup.button.callback('Fetch details', `adf_${animeId}_${userId}`)
                 ])
                 buttons.push([
                     Markup.button.callback(`🗑 DELETE 🗑`, `deleteAnime_${animeId}_${userId}`, !!ctx.callbackQuery.inline_message_id)
@@ -112,6 +116,9 @@ actions.action(/(season|episode)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
                     Markup.button.callback(`On Air: ${anime.onAir ? '✅' : '❌'}`, `toggleOnAir_${animeId}_${userId}_${anime.onAir ? 'off' : 'on'}${onlyAiring ? '_airing' : ''}`)
                 ])
                 buttons.push([
+                    Markup.button.callback('Fetch details', `adf_${animeId}_${userId}`)
+                ])
+                buttons.push([
                     Markup.button.callback(`🗑 DELETE 🗑`, `deleteAnime_${animeId}_${userId}`, !!ctx.callbackQuery.inline_message_id)
                 ])
                 if (onlyAiring) {
@@ -176,6 +183,9 @@ actions.action(/toggleOnAir_\d+_\d+_(on|off)(_\w+)?/i, async ctx => {
                 ])
                 buttons.push([
                     Markup.button.callback(`On Air: ${anime.onAir ? '✅' : '❌'}`, `toggleOnAir_${animeId}_${userId}_${anime.onAir ? 'off' : 'on'}${onlyAiring ? '_airing' : ''}`)
+                ])
+                buttons.push([
+                    Markup.button.callback('Fetch details', `adf_${animeId}_${userId}`)
                 ])
                 buttons.push([
                     Markup.button.callback(`🗑 DELETE 🗑`, `deleteAnime_${animeId}_${userId}`, !!ctx.callbackQuery.inline_message_id)
@@ -440,6 +450,103 @@ actions.action(/afm_\d+_\d+_\d+_\d+/i, async ctx => {
     }
 })
 
+actions.action(/adf_\d+_\d+/i, async ctx => {
+    if (!('data' in ctx.callbackQuery)) return
+
+    const [animeId, userId] = ctx.callbackQuery.data.replace(/adf_/i, '').split('_')
+    if (ctx.callbackQuery.from.id.toString() !== userId) {
+        await ctx.answerCbQuery('This is not your anime').catch(e => logger.error(e))
+        return
+    }
+
+    const anime = await prisma.anime.findUnique({ where: { id: parseInt(animeId) } })
+    if (!anime) {
+        await ctx.answerCbQuery('Anime not found').catch(logger.error)
+        return
+    }
+
+    await ctx.answerCbQuery('Fetching details...').catch(logger.error)
+
+    if (anime.anilistId) {
+        const details = await getBestDetails('anime', anime)
+        if (!details) {
+            await ctx.reply('No details found for this anime.')
+            return
+        }
+
+        return ctx.replyWithHTML(detailsPreviewText(details), Markup.inlineKeyboard([
+            [Markup.button.callback('Save details', `ads_${animeId}_${userId}_${details.provider}_${encodeURIComponent(details.id)}`)],
+            [Markup.button.callback('Cancel', `animeInfo_${animeId}_${userId}`)],
+        ])).catch(logger.error)
+    }
+
+    const results = await searchDetails('anime', anime.name, 5)
+    if (results.length < 1) {
+        await ctx.reply('No details found for this anime.')
+        return
+    }
+
+    const buttons = results.slice(0, 8).map(details => [
+        Markup.button.callback(detailButtonLabel(details), `adp_${animeId}_${userId}_${details.provider}_${encodeURIComponent(details.id)}`),
+    ])
+    buttons.push([Markup.button.callback('Cancel', `animeInfo_${animeId}_${userId}`)])
+
+    return ctx.replyWithHTML(`Select details for <b>${escapeHtml(anime.name)}</b>:`, Markup.inlineKeyboard(buttons)).catch(logger.error)
+})
+
+actions.action(/adp_\d+_\d+_[^_]+_.+/i, async ctx => {
+    if (!('data' in ctx.callbackQuery)) return
+
+    const parsed = parseDetailAction(ctx.callbackQuery.data, 'adp')
+    if (!parsed) return
+
+    const { recordId, userId, provider, providerId } = parsed
+    if (ctx.callbackQuery.from.id.toString() !== userId) {
+        await ctx.answerCbQuery('This is not your anime').catch(e => logger.error(e))
+        return
+    }
+
+    await ctx.answerCbQuery().catch(logger.error)
+
+    const details = await getDetailsByProvider('anime', provider, providerId)
+    if (!details) {
+        await ctx.reply('Could not load those details.')
+        return
+    }
+
+    return ctx.replyWithHTML(detailsPreviewText(details), Markup.inlineKeyboard([
+        [Markup.button.callback('Save details', `ads_${recordId}_${userId}_${details.provider}_${encodeURIComponent(details.id)}`)],
+        [Markup.button.callback('Cancel', `animeInfo_${recordId}_${userId}`)],
+    ])).catch(logger.error)
+})
+
+actions.action(/ads_\d+_\d+_[^_]+_.+/i, async ctx => {
+    if (!('data' in ctx.callbackQuery)) return
+
+    const parsed = parseDetailAction(ctx.callbackQuery.data, 'ads')
+    if (!parsed) return
+
+    const { recordId, userId, provider, providerId } = parsed
+    if (ctx.callbackQuery.from.id.toString() !== userId) {
+        await ctx.answerCbQuery('This is not your anime').catch(e => logger.error(e))
+        return
+    }
+
+    const details = await getDetailsByProvider('anime', provider, providerId)
+    if (!details) {
+        await ctx.answerCbQuery('Could not load details').catch(logger.error)
+        return
+    }
+
+    await prisma.anime.update({
+        where: { id: parseInt(recordId) },
+        data: toAnimeUpdate(details),
+    })
+
+    await ctx.answerCbQuery('Details saved!').catch(logger.error)
+    return ctx.replyWithHTML(`Saved details from <b>${escapeHtml(details.providerLabel)}</b> for <b>${escapeHtml(details.title)}</b>.`).catch(logger.error)
+})
+
 actions.action(/deleteAnime_/, async ctx => {
     try {
         if ('data' in ctx.callbackQuery && !ctx.callbackQuery.inline_message_id) {
@@ -462,5 +569,29 @@ actions.action(/deleteAnime_/, async ctx => {
         logger.error(error)
     }
 })
+
+function detailButtonLabel(details: { providerLabel: string, title: string }) {
+    const title = details.title.length > 32 ? `${details.title.slice(0, 29)}...` : details.title
+    return `${details.providerLabel}: ${title}`
+}
+
+function detailsPreviewText(details: Parameters<typeof summarizeDetails>[0]) {
+    return `<b>Preview details to save</b>\n\n${summarizeDetails(details)}`
+}
+
+function parseDetailAction(data: string, prefix: string) {
+    const parts = data.replace(new RegExp(`^${prefix}_`, 'i'), '').split('_')
+    const [recordId, userId, provider, ...providerIdParts] = parts
+    const providerId = providerIdParts.join('_')
+
+    if (!recordId || !userId || !provider || !providerId) return null
+
+    return {
+        recordId,
+        userId,
+        provider,
+        providerId: decodeURIComponent(providerId),
+    }
+}
 
 export default actions

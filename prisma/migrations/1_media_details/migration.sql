@@ -1,0 +1,21 @@
+ALTER TABLE "Anime" ADD COLUMN "detailsProvider" TEXT;
+ALTER TABLE "Anime" ADD COLUMN "detailsId" TEXT;
+ALTER TABLE "Anime" ADD COLUMN "detailsUrl" TEXT;
+ALTER TABLE "Anime" ADD COLUMN "coverImageUrl" TEXT;
+ALTER TABLE "Anime" ADD COLUMN "status" TEXT;
+ALTER TABLE "Anime" ADD COLUMN "genres" TEXT;
+ALTER TABLE "Anime" ADD COLUMN "description" TEXT;
+ALTER TABLE "Anime" ADD COLUMN "totalEpisodes" INTEGER;
+ALTER TABLE "Anime" ADD COLUMN "streamingUrl" TEXT;
+
+ALTER TABLE "Novel" ADD COLUMN "detailsProvider" TEXT;
+ALTER TABLE "Novel" ADD COLUMN "detailsId" TEXT;
+ALTER TABLE "Novel" ADD COLUMN "detailsUrl" TEXT;
+ALTER TABLE "Novel" ADD COLUMN "coverImageUrl" TEXT;
+ALTER TABLE "Novel" ADD COLUMN "status" TEXT;
+ALTER TABLE "Novel" ADD COLUMN "genres" TEXT;
+ALTER TABLE "Novel" ADD COLUMN "description" TEXT;
+ALTER TABLE "Novel" ADD COLUMN "totalVolumes" INTEGER;
+ALTER TABLE "Novel" ADD COLUMN "totalChapters" INTEGER;
+ALTER TABLE "Novel" ADD COLUMN "authors" TEXT;
+ALTER TABLE "Novel" ADD COLUMN "source" TEXT;

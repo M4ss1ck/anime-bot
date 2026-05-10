@@ -4,6 +4,7 @@ import { getNovel, getNovels } from '../anilist-service/index.js'
 import { prisma } from '../db/prisma.js'
 import { escapeHtml } from '../utils/index.js'
 import * as fs from 'fs/promises'
+import { getBestDetails, getDetailsByProvider, searchDetails, summarizeDetails, toReadingUpdate } from '../details-service/index.js'
 
 const novel = new Composer()
 
@@ -288,6 +289,9 @@ novel.action(/novelInfo_\d+_\d+(_\w+)?/i, async ctx => {
                     Markup.button.callback(`RELEASING: ${novel && novel.releasing ? '✅' : '❌'}`, `toggleReleasing_${novelId}_${userId}_${novel && novel.releasing ? 'off' : 'on'}${releasing ? '_rel' : ''}`)
                 ])
                 buttons.push([
+                    Markup.button.callback('Fetch details', `ndf_${novelId}_${userId}`)
+                ])
+                buttons.push([
                     Markup.button.callback(`🗑 DELETE 🗑`, `deleteNovel_${novelId}_${userId}`, !!ctx.callbackQuery.inline_message_id)
                 ])
                 if (releasing) {
@@ -385,6 +389,9 @@ novel.action(/(part|vol|ch)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
                     Markup.button.callback(`RELEASING: ${novel && novel.releasing ? '✅' : '❌'}`, `toggleReleasing_${novelId}_${userId}_${novel && novel.releasing ? 'off' : 'on'}${releasing ? '_rel' : ''}`)
                 ])
                 buttons.push([
+                    Markup.button.callback('Fetch details', `ndf_${novelId}_${userId}`)
+                ])
+                buttons.push([
                     Markup.button.callback(`🗑 DELETE 🗑`, `deleteNovel_${novelId}_${userId}`, !!ctx.callbackQuery.inline_message_id)
                 ])
                 if (releasing) {
@@ -480,6 +487,9 @@ novel.action(/toggleReleasing_\d+_\d+_(on|off)(_\w+)?/i, async ctx => {
 
                 buttons.push([
                     Markup.button.callback(`RELEASING: ${novel && novel.releasing ? '✅' : '❌'}`, `toggleReleasing_${novelId}_${userId}_${novel && novel.releasing ? 'off' : 'on'}${releasing ? '_rel' : ''}`)
+                ])
+                buttons.push([
+                    Markup.button.callback('Fetch details', `ndf_${novelId}_${userId}`)
                 ])
                 buttons.push([
                     Markup.button.callback(`🗑 DELETE 🗑`, `deleteNovel_${novelId}_${userId}`, !!ctx.callbackQuery.inline_message_id)
@@ -649,6 +659,103 @@ novel.action(/releasing_\d+_\d+/i, async ctx => {
     }
 })
 
+novel.action(/ndf_\d+_\d+/i, async ctx => {
+    if (!('data' in ctx.callbackQuery)) return
+
+    const [novelId, userId] = ctx.callbackQuery.data.replace(/ndf_/i, '').split('_')
+    if (ctx.callbackQuery.from.id.toString() !== userId) {
+        await ctx.answerCbQuery('This is not your novel').catch(e => logger.error(e))
+        return
+    }
+
+    const savedNovel = await prisma.novel.findUnique({ where: { id: parseInt(novelId) } })
+    if (!savedNovel) {
+        await ctx.answerCbQuery('Novel not found').catch(logger.error)
+        return
+    }
+
+    await ctx.answerCbQuery('Fetching details...').catch(logger.error)
+
+    if (savedNovel.anilistId) {
+        const details = await getBestDetails('reading', savedNovel)
+        if (!details) {
+            await ctx.reply('No details found for this reading item.')
+            return
+        }
+
+        return ctx.replyWithHTML(detailsPreviewText(details), Markup.inlineKeyboard([
+            [Markup.button.callback('Save details', `nds_${novelId}_${userId}_${details.provider}_${encodeURIComponent(details.id)}`)],
+            [Markup.button.callback('Cancel', `novelInfo_${novelId}_${userId}`)],
+        ])).catch(logger.error)
+    }
+
+    const results = await searchDetails('reading', savedNovel.name, 5)
+    if (results.length < 1) {
+        await ctx.reply('No details found for this reading item.')
+        return
+    }
+
+    const buttons = results.slice(0, 8).map(details => [
+        Markup.button.callback(detailButtonLabel(details), `ndp_${novelId}_${userId}_${details.provider}_${encodeURIComponent(details.id)}`),
+    ])
+    buttons.push([Markup.button.callback('Cancel', `novelInfo_${novelId}_${userId}`)])
+
+    return ctx.replyWithHTML(`Select details for <b>${escapeHtml(savedNovel.name)}</b>:`, Markup.inlineKeyboard(buttons)).catch(logger.error)
+})
+
+novel.action(/ndp_\d+_\d+_[^_]+_.+/i, async ctx => {
+    if (!('data' in ctx.callbackQuery)) return
+
+    const parsed = parseDetailAction(ctx.callbackQuery.data, 'ndp')
+    if (!parsed) return
+
+    const { recordId, userId, provider, providerId } = parsed
+    if (ctx.callbackQuery.from.id.toString() !== userId) {
+        await ctx.answerCbQuery('This is not your novel').catch(e => logger.error(e))
+        return
+    }
+
+    await ctx.answerCbQuery().catch(logger.error)
+
+    const details = await getDetailsByProvider('reading', provider, providerId)
+    if (!details) {
+        await ctx.reply('Could not load those details.')
+        return
+    }
+
+    return ctx.replyWithHTML(detailsPreviewText(details), Markup.inlineKeyboard([
+        [Markup.button.callback('Save details', `nds_${recordId}_${userId}_${details.provider}_${encodeURIComponent(details.id)}`)],
+        [Markup.button.callback('Cancel', `novelInfo_${recordId}_${userId}`)],
+    ])).catch(logger.error)
+})
+
+novel.action(/nds_\d+_\d+_[^_]+_.+/i, async ctx => {
+    if (!('data' in ctx.callbackQuery)) return
+
+    const parsed = parseDetailAction(ctx.callbackQuery.data, 'nds')
+    if (!parsed) return
+
+    const { recordId, userId, provider, providerId } = parsed
+    if (ctx.callbackQuery.from.id.toString() !== userId) {
+        await ctx.answerCbQuery('This is not your novel').catch(e => logger.error(e))
+        return
+    }
+
+    const details = await getDetailsByProvider('reading', provider, providerId)
+    if (!details) {
+        await ctx.answerCbQuery('Could not load details').catch(logger.error)
+        return
+    }
+
+    await prisma.novel.update({
+        where: { id: parseInt(recordId) },
+        data: toReadingUpdate(details),
+    })
+
+    await ctx.answerCbQuery('Details saved!').catch(logger.error)
+    return ctx.replyWithHTML(`Saved details from <b>${escapeHtml(details.providerLabel)}</b> for <b>${escapeHtml(details.title)}</b>.`).catch(logger.error)
+})
+
 novel.action(/deleteNovel_/, async ctx => {
     try {
         if ('data' in ctx.callbackQuery && !ctx.callbackQuery.inline_message_id) {
@@ -671,6 +778,30 @@ novel.action(/deleteNovel_/, async ctx => {
         logger.error(error)
     }
 })
+
+function detailButtonLabel(details: { providerLabel: string, title: string }) {
+    const title = details.title.length > 32 ? `${details.title.slice(0, 29)}...` : details.title
+    return `${details.providerLabel}: ${title}`
+}
+
+function detailsPreviewText(details: Parameters<typeof summarizeDetails>[0]) {
+    return `<b>Preview details to save</b>\n\n${summarizeDetails(details)}`
+}
+
+function parseDetailAction(data: string, prefix: string) {
+    const parts = data.replace(new RegExp(`^${prefix}_`, 'i'), '').split('_')
+    const [recordId, userId, provider, ...providerIdParts] = parts
+    const providerId = providerIdParts.join('_')
+
+    if (!recordId || !userId || !provider || !providerId) return null
+
+    return {
+        recordId,
+        userId,
+        provider,
+        providerId: decodeURIComponent(providerId),
+    }
+}
 
 // nfm = novel from menu
 novel.action(/nfm_\d+_\d+/i, async ctx => {

@@ -84,6 +84,15 @@ admin.command('dbexport', Composer.acl(Number(adminID), async ctx => {
                     episode: a.episode,
                     onAir: a.onAir ?? false,
                     note: a.note ?? null,
+                    detailsProvider: a.detailsProvider ?? null,
+                    detailsId: a.detailsId ?? null,
+                    detailsUrl: a.detailsUrl ?? null,
+                    coverImageUrl: a.coverImageUrl ?? null,
+                    status: a.status ?? null,
+                    genres: a.genres ?? null,
+                    description: a.description ?? null,
+                    totalEpisodes: a.totalEpisodes ?? null,
+                    streamingUrl: a.streamingUrl ?? null,
                     userId: a.userId,
                     updatedAt: a.updatedAt ?? null,
                 })),
@@ -96,6 +105,17 @@ admin.command('dbexport', Composer.acl(Number(adminID), async ctx => {
                     part: n.part ?? null,
                     releasing: n.releasing ?? false,
                     note: n.note ?? '',
+                    detailsProvider: n.detailsProvider ?? null,
+                    detailsId: n.detailsId ?? null,
+                    detailsUrl: n.detailsUrl ?? null,
+                    coverImageUrl: n.coverImageUrl ?? null,
+                    status: n.status ?? null,
+                    genres: n.genres ?? null,
+                    description: n.description ?? null,
+                    totalVolumes: n.totalVolumes ?? null,
+                    totalChapters: n.totalChapters ?? null,
+                    authors: n.authors ?? null,
+                    source: n.source ?? null,
                     userId: n.userId,
                     updatedAt: n.updatedAt ?? null,
                 })),
@@ -225,8 +245,8 @@ admin.command('dbimport', Composer.acl(Number(adminID), async ctx => {
         logger.info('Importing animes...')
         for (const anime of exportData.data.animes) {
             await safeInsert('Anime',
-                ['name', 'anilistId', 'season', 'episode', 'onAir', 'note', 'userId'],
-                [anime.name, anime.anilistId, anime.season, anime.episode, anime.onAir ? 1 : 0, anime.note, anime.userId]
+                ['name', 'anilistId', 'season', 'episode', 'onAir', 'note', 'detailsProvider', 'detailsId', 'detailsUrl', 'coverImageUrl', 'status', 'genres', 'description', 'totalEpisodes', 'streamingUrl', 'userId'],
+                [anime.name, anime.anilistId, anime.season, anime.episode, anime.onAir ? 1 : 0, anime.note, anime.detailsProvider ?? null, anime.detailsId ?? null, anime.detailsUrl ?? null, anime.coverImageUrl ?? null, anime.status ?? null, anime.genres ?? null, anime.description ?? null, anime.totalEpisodes ?? null, anime.streamingUrl ?? null, anime.userId]
             )
         }
 
@@ -234,8 +254,8 @@ admin.command('dbimport', Composer.acl(Number(adminID), async ctx => {
         logger.info('Importing novels...')
         for (const novel of exportData.data.novels) {
             await safeInsert('Novel',
-                ['name', 'anilistId', 'volume', 'chapter', 'part', 'releasing', 'note', 'userId'],
-                [novel.name, novel.anilistId, novel.volume, novel.chapter, novel.part, novel.releasing ? 1 : 0, novel.note, novel.userId]
+                ['name', 'anilistId', 'volume', 'chapter', 'part', 'releasing', 'note', 'detailsProvider', 'detailsId', 'detailsUrl', 'coverImageUrl', 'status', 'genres', 'description', 'totalVolumes', 'totalChapters', 'authors', 'source', 'userId'],
+                [novel.name, novel.anilistId, novel.volume, novel.chapter, novel.part, novel.releasing ? 1 : 0, novel.note, novel.detailsProvider ?? null, novel.detailsId ?? null, novel.detailsUrl ?? null, novel.coverImageUrl ?? null, novel.status ?? null, novel.genres ?? null, novel.description ?? null, novel.totalVolumes ?? null, novel.totalChapters ?? null, novel.authors ?? null, novel.source ?? null, novel.userId]
             )
         }
 
