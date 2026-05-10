@@ -16,6 +16,9 @@ import notify from './middleware/notify.js'
 import check from './middleware/check.js'
 import { runScheduled } from './utils/index.js'
 
+import { Agent, setGlobalDispatcher } from "undici";
+setGlobalDispatcher(new Agent({ connect: { family: 4 } }));
+
 const bot = new Telegraf(process.env.BOT_TOKEN ?? '')
 
 bot
