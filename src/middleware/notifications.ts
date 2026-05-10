@@ -2,7 +2,7 @@ import { Telegraf } from "telegraf"
 import { prisma } from "../db/prisma.js"
 import { getAnimeRelations, getNovelRelations } from "../anilist-service/index.js"
 import { logger } from "../logger/index.js"
-import { escape } from "../utils/index.js"
+import { escapeHtml } from "../utils/index.js"
 
 export const checkNewSeasons = async (bot: Telegraf, fetcher = getAnimeRelations, targetUserId?: string) => {
   logger.info(`Checking for new seasons... ${targetUserId ? `(Target: ${targetUserId})` : ''}`)
@@ -81,7 +81,7 @@ export const checkNewSeasons = async (bot: Telegraf, fetcher = getAnimeRelations
                   if (!alreadyNotified) {
                     // Send notification
                     const title = sequel.title.english || sequel.title.romaji || sequel.title.native
-                    const message = `📢 <b>New Season Alert!</b>\n\nA sequel to an anime you are watching is available or coming soon:\n\n<b>${escape(title)}</b>\n\nDo you want to add it to your list?`
+                    const message = `📢 <b>New Season Alert!</b>\n\nA sequel to an anime you are watching is available or coming soon:\n\n<b>${escapeHtml(title)}</b>\n\nDo you want to add it to your list?`
 
                     try {
                       await bot.telegram.sendMessage(user.userId, message, {
@@ -183,7 +183,7 @@ export const checkNewNovelReleases = async (bot: Telegraf, fetcher = getNovelRel
 
                   if (!alreadyNotified) {
                     const title = sequel.title.english || sequel.title.romaji || sequel.title.native
-                    const message = `📚 <b>New Novel Alert!</b>\n\nA sequel/related novel to one you are reading is available or coming soon:\n\n<b>${escape(title)}</b>\n\nDo you want to add it to your list?`
+                    const message = `📚 <b>New Novel Alert!</b>\n\nA sequel/related novel to one you are reading is available or coming soon:\n\n<b>${escapeHtml(title)}</b>\n\nDo you want to add it to your list?`
 
                     try {
                       await bot.telegram.sendMessage(user.userId, message, {

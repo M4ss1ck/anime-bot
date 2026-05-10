@@ -3,7 +3,7 @@ import { logger } from '../logger/index.js'
 import dayjs from 'dayjs'
 import { getAnime, getAnimes, getCharacter, getCharacters, getIsBirthdayCharacters } from '../anilist-service/index.js'
 
-import { convertMsToRelativeTime, escape } from '../utils/index.js'
+import { convertMsToRelativeTime, escapeHtml } from '../utils/index.js'
 
 const anime = new Composer()
 
@@ -23,12 +23,12 @@ anime.command('anime', async (ctx) => {
                     buttons.push([Markup.button.callback(anime.title.romaji ?? 'placeholder text', `getAnime${anime.id}`)])
 
                 buttons.push([
-                    Markup.button.callback('⏭', `AnimPage${2}-${escape(search)}`, total / perPage <= 1),
+                    Markup.button.callback('⏭', `AnimPage${2}-${encodeURIComponent(search)}`, total / perPage <= 1),
                 ])
 
                 const keyboard = Markup.inlineKeyboard(buttons)
                 //
-                const text = `Results for <b>${escape(search)}</b>`
+                const text = `Results for <b>${escapeHtml(search)}</b>`
 
                 return ctx.replyWithHTML(text, keyboard)
             }
@@ -44,7 +44,7 @@ anime.command('anime', async (ctx) => {
 anime.action(/AnimPage\d+-/i, async (ctx) => {
     const pageString = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data?.match(/AnimPage(\d+)/i)?.[1] : null
     const page = parseInt(pageString ?? '1')
-    const search = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data?.replace(/AnimPage\d+-/i, '') : ''
+    const search = 'data' in ctx.callbackQuery ? decodeURIComponent(ctx.callbackQuery.data?.replace(/AnimPage\d+-/i, '') ?? '') : ''
     if (search && search.length > 2) {
         // buscar en AniList
         try {
@@ -62,8 +62,8 @@ anime.action(/AnimPage\d+-/i, async (ctx) => {
                 const showNextBtn = total / perPage > page
 
                 const lastRow = []
-                showPrevBtn && lastRow.push(Markup.button.callback('⏮', `AnimPage${page - 1}-${search}`))
-                showNextBtn && lastRow.push(Markup.button.callback('⏭', `AnimPage${page + 1}-${search}`))
+                showPrevBtn && lastRow.push(Markup.button.callback('⏮', `AnimPage${page - 1}-${encodeURIComponent(search)}`))
+                showNextBtn && lastRow.push(Markup.button.callback('⏭', `AnimPage${page + 1}-${encodeURIComponent(search)}`))
 
                 buttons.push(lastRow)
 
@@ -87,7 +87,7 @@ anime.action(/getAnime/, async (ctx) => {
             if (!results) return ctx.replyWithHTML('Error. No anime found.').catch(logger.error)
             const media = results.Media
             if (media) {
-                const caption = `<b>${media.title.romaji ?? 'Title'}</b> (${media.id})\n<i>${escape(media.title.english ?? '')}</i>\nGenres: ${media.genres ? media.genres.join(', ') : 'n/a'}\nHashtag: ${media.hashtag ?? 'n/a'}\nYear: ${media.seasonYear ?? 'n/a'}  Episodes: ${media.episodes ?? 'n/a'}\n${media.nextAiringEpisode ? 'Next airing episode: ' + new Date(Math.floor(media.nextAiringEpisode.airingAt * 1000)).toLocaleString('en-US') + ' <i>(in ' + convertMsToRelativeTime(media.nextAiringEpisode.airingAt * 1000 - Date.now()) + ')</i> ' : '<i>no airing info available</i>'}\n\n<i>${media.description ? escape(media.description) : 'description n/a'}`
+                const caption = `<b>${media.title.romaji ?? 'Title'}</b> (${media.id})\n<i>${escapeHtml(media.title.english ?? '')}</i>\nGenres: ${media.genres ? media.genres.join(', ') : 'n/a'}\nHashtag: ${media.hashtag ?? 'n/a'}\nYear: ${media.seasonYear ?? 'n/a'}  Episodes: ${media.episodes ?? 'n/a'}\n${media.nextAiringEpisode ? 'Next airing episode: ' + new Date(Math.floor(media.nextAiringEpisode.airingAt * 1000)).toLocaleString('en-US') + ' <i>(in ' + convertMsToRelativeTime(media.nextAiringEpisode.airingAt * 1000 - Date.now()) + ')</i> ' : '<i>no airing info available</i>'}\n\n<i>${media.description ? escapeHtml(media.description) : 'description n/a'}`
 
                 const cover = media.coverImage.large
 
@@ -153,11 +153,11 @@ anime.command('character', async (ctx) => {
                     buttons.push([Markup.button.callback(char.name.full ?? 'full name error', `getCharacter${char.id}`)])
 
                 buttons.push([
-                    Markup.button.callback('⏭', `CharPage${2}-${escape(search)}`, total / perPage <= 1),
+                    Markup.button.callback('⏭', `CharPage${2}-${encodeURIComponent(search)}`, total / perPage <= 1),
                 ])
 
                 const keyboard = Markup.inlineKeyboard(buttons)
-                const text = `Results for <i>${escape(search)}</i>`
+                const text = `Results for <i>${escapeHtml(search)}</i>`
 
                 return ctx.replyWithHTML(text, keyboard)
             }
@@ -170,7 +170,7 @@ anime.command('character', async (ctx) => {
 anime.action(/CharPage\d+-/i, async (ctx) => {
     const pageString = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data?.match(/CharPage(\d+)/i)?.[1] : null
     const page = parseInt(pageString ?? '1')
-    const search = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data?.replace(/CharPage\d+-/i, '') : ''
+    const search = 'data' in ctx.callbackQuery ? decodeURIComponent(ctx.callbackQuery.data?.replace(/CharPage\d+-/i, '') ?? '') : ''
     if (search && search.length > 2) {
         try {
             const results = await getCharacters(search, page)
@@ -188,8 +188,8 @@ anime.action(/CharPage\d+-/i, async (ctx) => {
                 const showNextBtn = total / perPage > page
 
                 const lastRow = []
-                showPrevBtn && lastRow.push(Markup.button.callback('⏮', `CharPage${page - 1}-${search}`))
-                showNextBtn && lastRow.push(Markup.button.callback('⏭', `CharPage${page + 1}-${search}`))
+                showPrevBtn && lastRow.push(Markup.button.callback('⏮', `CharPage${page - 1}-${encodeURIComponent(search)}`))
+                showNextBtn && lastRow.push(Markup.button.callback('⏭', `CharPage${page + 1}-${encodeURIComponent(search)}`))
 
                 buttons.push(lastRow)
 
@@ -212,7 +212,7 @@ anime.action(/getCharacter/, async (ctx) => {
             if (!results) return ctx.replyWithHTML('Error. No character found.').catch(logger.error)
             const character = results.Character
             if (character) {
-                const caption = `<a href="${character.siteUrl}">${character.name.full ?? 'Nombre'}</a> (${character.id})\nAge: ${character.age ?? 'n/a'}  Gender: ${character.gender ?? 'n/a'}\n\n<i>${character.description ? escape(character.description) : 'description n/a'}`
+                const caption = `<a href="${character.siteUrl}">${character.name.full ?? 'Nombre'}</a> (${character.id})\nAge: ${character.age ?? 'n/a'}  Gender: ${character.gender ?? 'n/a'}\n\n<i>${character.description ? escapeHtml(character.description) : 'description n/a'}`
 
                 const cover = character.image.large
 

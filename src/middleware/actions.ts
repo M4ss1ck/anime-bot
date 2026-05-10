@@ -4,7 +4,7 @@ import { logger } from "../logger/index.js"
 
 import * as fs from 'fs/promises'
 
-import { padTo2Digits } from "../utils/index.js"
+import { padTo2Digits, escapeHtml } from "../utils/index.js"
 import { getAnime } from "../anilist-service/index.js"
 
 const actions = new Composer()
@@ -59,7 +59,7 @@ actions.action(/animeInfo_\d+_\d+(_\w+)?/i, async ctx => {
 
                 const keyboard = Markup.inlineKeyboard(buttons)
 
-                const text = anime ? `<b>Name:</b> ${anime.name}\n<b>Season:</b> ${anime.season}\n<b>Episode:</b> ${anime.episode}\n\n<b>Note:</b>\n${anime.note && anime.note.length > 0 ? anime.note : '-'}\n\n<i>To edit, use the buttons or modify the following code:</i>\n<pre>/save ${anime.season} ${anime.episode} ${anime.name}\n${anime.note}</pre>` : '<b>Anime not found for this id</b>'
+                const text = anime ? `<b>Name:</b> ${escapeHtml(anime.name)}\n<b>Season:</b> ${anime.season}\n<b>Episode:</b> ${anime.episode}\n\n<b>Note:</b>\n${anime.note && anime.note.length > 0 ? escapeHtml(anime.note) : '-'}\n\n<i>To edit, use the buttons or modify the following code:</i>\n<pre>/save ${anime.season} ${anime.episode} ${escapeHtml(anime.name)}\n${escapeHtml(anime.note || '')}</pre>` : '<b>Anime not found for this id</b>'
 
                 return ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
             }
@@ -126,7 +126,7 @@ actions.action(/(season|episode)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
 
                 const keyboard = Markup.inlineKeyboard(buttons)
 
-                const text = anime ? `<b>Name:</b> ${anime.name}\n<b>Season:</b> ${anime.season}\n<b>Episode:</b> ${anime.episode}\n\n<b>Note:</b>\n${anime.note && anime.note.length > 0 ? anime.note : '-'}\n\n<i>To edit, use the buttons or modify the following code:</i>\n<pre>/save ${anime.season} ${anime.episode} ${anime.name}\n${anime.note}</pre>` : '<b>Anime not found for this id</b>'
+                const text = anime ? `<b>Name:</b> ${escapeHtml(anime.name)}\n<b>Season:</b> ${anime.season}\n<b>Episode:</b> ${anime.episode}\n\n<b>Note:</b>\n${anime.note && anime.note.length > 0 ? escapeHtml(anime.note) : '-'}\n\n<i>To edit, use the buttons or modify the following code:</i>\n<pre>/save ${anime.season} ${anime.episode} ${escapeHtml(anime.name)}\n${escapeHtml(anime.note || '')}</pre>` : '<b>Anime not found for this id</b>'
 
                 await ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
             }).catch(logger.error)
@@ -192,7 +192,7 @@ actions.action(/toggleOnAir_\d+_\d+_(on|off)(_\w+)?/i, async ctx => {
 
                 const keyboard = Markup.inlineKeyboard(buttons)
 
-                const text = anime ? `<b>Name:</b> ${anime.name}\n<b>Season:</b> ${anime.season}\n<b>Episode:</b> ${anime.episode}\n\n<b>Note:</b>\n${anime.note && anime.note.length > 0 ? anime.note : '-'}\n\n<i>To edit, use the buttons or modify the following code:</i>\n<pre>/save ${anime.season} ${anime.episode} ${anime.name}\n${anime.note}</pre>` : '<b>Anime not found for this id</b>'
+                const text = anime ? `<b>Name:</b> ${escapeHtml(anime.name)}\n<b>Season:</b> ${anime.season}\n<b>Episode:</b> ${anime.episode}\n\n<b>Note:</b>\n${anime.note && anime.note.length > 0 ? escapeHtml(anime.note) : '-'}\n\n<i>To edit, use the buttons or modify the following code:</i>\n<pre>/save ${anime.season} ${anime.episode} ${escapeHtml(anime.name)}\n${escapeHtml(anime.note || '')}</pre>` : '<b>Anime not found for this id</b>'
 
                 await ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
             }).catch(logger.error)
@@ -257,7 +257,7 @@ actions.action(/myanime_\d+_\d+/i, async ctx => {
                 ]
             })
 
-            const animelist = animes.slice(0, 10).map(anime => `<code>${anime.name}</code> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
+            const animelist = animes.slice(0, 10).map(anime => `<code>${escapeHtml(anime.name)}</code> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
 
             const text = `<b>Anime stored for you:</b>\n\n${animelist}`
 
@@ -307,7 +307,7 @@ actions.action(/airing_\d+_\d+/i, async ctx => {
                 ]
             })
 
-            const animelist = animes.slice(0, 10).map(anime => `<code>${anime.name}</code> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
+            const animelist = animes.slice(0, 10).map(anime => `<code>${escapeHtml(anime.name)}</code> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
 
             const text = `<b>Anime marked as 'On Air' stored for you:</b>\n\n${animelist}`
 
@@ -327,7 +327,12 @@ actions.action(/airing_\d+_\d+/i, async ctx => {
 
 actions.action(/Local_\d+_\d+_.+/i, async ctx => {
     if ('data' in ctx.callbackQuery) {
-        const [page, userId, query] = ctx.callbackQuery.data.replace(/Local_/i, '').split('_')
+        const data = ctx.callbackQuery.data.replace(/Local_/i, '')
+        const firstUnderscore = data.indexOf('_')
+        const secondUnderscore = data.indexOf('_', firstUnderscore + 1)
+        const page = data.substring(0, firstUnderscore)
+        const userId = data.substring(firstUnderscore + 1, secondUnderscore)
+        const query = decodeURIComponent(data.substring(secondUnderscore + 1))
         if (page && userId && query) {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
@@ -355,7 +360,7 @@ actions.action(/Local_\d+_\d+_.+/i, async ctx => {
                 ]
             })
 
-            const animelist = animes.map(anime => `<code>${anime.name}</code> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
+            const animelist = animes.map(anime => `<code>${escapeHtml(anime.name)}</code> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
 
             const text = `<b>Anime stored for you:</b>\n\n${animelist}`
 

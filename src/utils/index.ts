@@ -141,18 +141,16 @@ export const runScheduled = async (bot: Telegraf) => {
     // --- End New Season Check Scheduling ---
 }
 
-/**
- * Escape common characters for HTML
- * @param {String} s text to escape
- * @returns parsed text
- */
-export const escape = (s: string) => {
+export const escapeHtml = (s: string) => {
     const lookup: Record<string, string> = {
-        ['&']: "&amp;",
-        ['"']: "&quot;",
-        ['\'']: "&apos;",
-        ['<']: "&lt;",
-        ['>']: "&gt;"
+        '&': "&amp;",
+        '"': "&quot;",
+        "'": "&apos;",
+        '<': "&lt;",
+        '>': "&gt;"
     };
-    return s.replace(/<(\/)?\w+>/g, '').replace(/[&"'<>]/g, c => lookup[c]);
+    return s.replace(/[&"'<>]/g, c => lookup[c]);
 }
+
+/** @deprecated Use escapeHtml for HTML contexts, encodeURIComponent for callback data */
+export const escape = escapeHtml

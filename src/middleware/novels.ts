@@ -2,7 +2,7 @@ import { Composer, Markup } from 'telegraf'
 import { logger } from '../logger/index.js'
 import { getNovel, getNovels } from '../anilist-service/index.js'
 import { prisma } from '../db/prisma.js'
-import { escape } from '../utils/index.js'
+import { escapeHtml } from '../utils/index.js'
 import * as fs from 'fs/promises'
 
 const novel = new Composer()
@@ -22,11 +22,11 @@ novel.command('novel', async (ctx) => {
                     buttons.push([Markup.button.callback(novel.title.romaji ?? 'placeholder text', `getNovel${novel.id}`)])
 
                 buttons.push([
-                    Markup.button.callback('⏭', `NovelPage${2}-${escape(search)}`, total / perPage <= 1),
+                    Markup.button.callback('⏭', `NovelPage${2}-${encodeURIComponent(search)}`, total / perPage <= 1),
                 ])
 
                 const keyboard = Markup.inlineKeyboard(buttons)
-                const text = `Results for <b>${escape(search)}</b>`
+                const text = `Results for <b>${escapeHtml(search)}</b>`
 
                 return ctx.replyWithHTML(text, keyboard)
             }
@@ -42,7 +42,7 @@ novel.command('novel', async (ctx) => {
 novel.action(/NovelPage\d+-/i, async (ctx) => {
     const pageString = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data?.match(/NovelPage(\d+)/i)?.[1] : null
     const page = parseInt(pageString ?? '1')
-    const search = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data?.replace(/NovelPage\d+-/i, '') : ''
+    const search = 'data' in ctx.callbackQuery ? decodeURIComponent(ctx.callbackQuery.data?.replace(/NovelPage\d+-/i, '') ?? '') : ''
     if (search && search.length > 2) {
         // buscar en AniList
         try {
@@ -59,8 +59,8 @@ novel.action(/NovelPage\d+-/i, async (ctx) => {
                 const showNextBtn = total / perPage > page
 
                 const lastRow = []
-                showPrevBtn && lastRow.push(Markup.button.callback('⏮', `NovelPage${page - 1}-${search}`))
-                showNextBtn && lastRow.push(Markup.button.callback('⏭', `NovelPage${page + 1}-${search}`))
+                showPrevBtn && lastRow.push(Markup.button.callback('⏮', `NovelPage${page - 1}-${encodeURIComponent(search)}`))
+                showNextBtn && lastRow.push(Markup.button.callback('⏭', `NovelPage${page + 1}-${encodeURIComponent(search)}`))
 
                 buttons.push(lastRow)
 
@@ -84,7 +84,7 @@ novel.action(/getNovel/, async (ctx) => {
             const media = results.Media
             if (media) {
                 const caption = `<b>${media.title.romaji ?? 'Title'}</b> (${media.id})\n<i>${media.title.english ?? ''}</i>
-Genres: ${media.genres ? media.genres.join(', ') : 'n/a'}\nVolumes: ${media.volumes ?? 'n/a'}  Chapters: ${media.chapters ?? 'n/a'}\nScore: ${media.averageScore ?? 'n/a'}\nStatus: ${media.status ?? 'n/a'}\nSource: ${media.source ?? 'n/a'}\n\n<i>${media.description ? escape(media.description) : 'description n/a'}`
+Genres: ${media.genres ? media.genres.join(', ') : 'n/a'}\nVolumes: ${media.volumes ?? 'n/a'}  Chapters: ${media.chapters ?? 'n/a'}\nScore: ${media.averageScore ?? 'n/a'}\nStatus: ${media.status ?? 'n/a'}\nSource: ${media.source ?? 'n/a'}\n\n<i>${media.description ? escapeHtml(media.description) : 'description n/a'}`
 
                 const cover = media.coverImage.large
 
@@ -125,7 +125,7 @@ novel.command(['mynovel', 'mynovels'], async (ctx) => {
     })
 
     if (novels.length > 0) {
-        const novelList = novels.slice(0, 10).map(novel => `<code>${novel.name}</code><b>${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}</b>`).join('\n')
+        const novelList = novels.slice(0, 10).map(novel => `<code>${escapeHtml(novel.name)}</code><b>${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}</b>`).join('\n')
 
         const text = `<b>Novels stored for you:</b>\n\n${novelList}`
 
@@ -165,7 +165,7 @@ novel.command(['releasing', 'r'], async (ctx) => {
     })
 
     if (novels.length > 0) {
-        const novelList = novels.slice(0, 10).map(novel => `<code>${novel.name}</code><b>${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}</b>`).join('\n')
+        const novelList = novels.slice(0, 10).map(novel => `<code>${escapeHtml(novel.name)}</code><b>${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}</b>`).join('\n')
 
         const text = `<b>Novels marked as 'RELEASING' stored for you:</b>\n\n${novelList}`
 
@@ -304,7 +304,7 @@ novel.action(/novelInfo_\d+_\d+(_\w+)?/i, async ctx => {
 
                 let text = ''
                 if (novel) {
-                    text += `<b>Name:</b> ${novel.name}`
+                    text += `<b>Name:</b> ${escapeHtml(novel.name)}`
                     if (novel.part) {
                         text += `\n<b>Part:</b> ${novel.part}`
                     }
@@ -315,9 +315,9 @@ novel.action(/novelInfo_\d+_\d+(_\w+)?/i, async ctx => {
                         text += `\n<b>Chapter:</b> ${novel.chapter}`
                     }
                     if (novel.note) {
-                        text += `\n<b>Note:</b>\n${novel.note && novel.note.length > 0 ? novel.note : '-'}`
+                        text += `\n<b>Note:</b>\n${novel.note && novel.note.length > 0 ? escapeHtml(novel.note) : '-'}`
                     }
-                    text += `\n\n<i>To edit the values, you could use the buttons or modify the following code:</i><pre>/nsave${novel.part ? " part" + novel.part : ""}${novel.volume ? " vol" + novel.volume : ""}${novel.chapter ? " ch" + novel.chapter : ""} ${novel.name}\n${novel.note}</pre>`
+                    text += `\n\n<i>To edit the values, you could use the buttons or modify the following code:</i><pre>/nsave${novel.part ? " part" + novel.part : ""}${novel.volume ? " vol" + novel.volume : ""}${novel.chapter ? " ch" + novel.chapter : ""} ${escapeHtml(novel.name)}\n${escapeHtml(novel.note || '')}</pre>`
                 } else {
                     text += '<b>Novel not found for this id</b>'
                 }
@@ -401,7 +401,7 @@ novel.action(/(part|vol|ch)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
 
                 let text = ''
                 if (novel) {
-                    text += `<b>Name:</b> ${novel.name}`
+                    text += `<b>Name:</b> ${escapeHtml(novel.name)}`
                     if (novel.part) {
                         text += `\n<b>Part:</b> ${novel.part}`
                     }
@@ -412,9 +412,9 @@ novel.action(/(part|vol|ch)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
                         text += `\n<b>Chapter:</b> ${novel.chapter}`
                     }
                     if (novel.note) {
-                        text += `\n<b>Note:</b>\n${novel.note && novel.note.length > 0 ? novel.note : '-'}`
+                        text += `\n<b>Note:</b>\n${novel.note && novel.note.length > 0 ? escapeHtml(novel.note) : '-'}`
                     }
-                    text += `\n\n<i>To edit the values, you could use the buttons or modify the following code:</i><pre>/nsave${novel.part ? " part" + novel.part : ""}${novel.volume ? " vol" + novel.volume : ""}${novel.chapter ? " ch" + novel.chapter : ""} ${novel.name}\n${novel.note}</pre>`
+                    text += `\n\n<i>To edit the values, you could use the buttons or modify the following code:</i><pre>/nsave${novel.part ? " part" + novel.part : ""}${novel.volume ? " vol" + novel.volume : ""}${novel.chapter ? " ch" + novel.chapter : ""} ${escapeHtml(novel.name)}\n${escapeHtml(novel.note || '')}</pre>`
                 } else {
                     text += '<b>Novel not found for this id</b>'
                 }
@@ -498,7 +498,7 @@ novel.action(/toggleReleasing_\d+_\d+_(on|off)(_\w+)?/i, async ctx => {
 
                 let text = ''
                 if (novel) {
-                    text += `<b>Name:</b> ${novel.name}`
+                    text += `<b>Name:</b> ${escapeHtml(novel.name)}`
                     if (novel.part) {
                         text += `\n<b>Part:</b> ${novel.part}`
                     }
@@ -509,9 +509,9 @@ novel.action(/toggleReleasing_\d+_\d+_(on|off)(_\w+)?/i, async ctx => {
                         text += `\n<b>Chapter:</b> ${novel.chapter}`
                     }
                     if (novel.note) {
-                        text += `\n<b>Note:</b>\n${novel.note && novel.note.length > 0 ? novel.note : '-'}`
+                        text += `\n<b>Note:</b>\n${novel.note && novel.note.length > 0 ? escapeHtml(novel.note) : '-'}`
                     }
-                    text += `\n\n<i>To edit the values, you could use the buttons or modify the following code:</i><pre>/nsave${novel.part ? " part" + novel.part : ""}${novel.volume ? " vol" + novel.volume : ""}${novel.chapter ? " ch" + novel.chapter : ""} ${novel.name}\n${novel.note}</pre>`
+                    text += `\n\n<i>To edit the values, you could use the buttons or modify the following code:</i><pre>/nsave${novel.part ? " part" + novel.part : ""}${novel.volume ? " vol" + novel.volume : ""}${novel.chapter ? " ch" + novel.chapter : ""} ${escapeHtml(novel.name)}\n${escapeHtml(novel.note || '')}</pre>`
                 } else {
                     text += '<b>Novel not found for this id</b>'
                 }
@@ -581,7 +581,7 @@ novel.action(/mynovel_\d+_\d+/i, async ctx => {
                 ]
             })
 
-            const novelList = novels.slice(0, 10).map(novel => `<code>${novel.name}</code><b>${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}</b>`).join('\n')
+            const novelList = novels.slice(0, 10).map(novel => `<code>${escapeHtml(novel.name)}</code><b>${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}</b>`).join('\n')
 
             const text = `<b>Novels stored for you:</b>\n\n${novelList}`
 
@@ -631,7 +631,7 @@ novel.action(/releasing_\d+_\d+/i, async ctx => {
                 ]
             })
 
-            const novelList = novels.slice(0, 10).map(novel => `<code>${novel.name}</code><b>${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}</b>`).join('\n')
+            const novelList = novels.slice(0, 10).map(novel => `<code>${escapeHtml(novel.name)}</code><b>${novel.part ? " Part " + novel.part : ""}${novel.volume ? " vol. " + novel.volume : ""}${novel.chapter ? " chapter " + novel.chapter : ""}</b>`).join('\n')
 
             const text = `<b>Novels marked as 'RELEASING' stored for you:</b>\n\n${novelList}`
 

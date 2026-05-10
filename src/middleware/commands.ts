@@ -4,7 +4,7 @@ import { prisma } from "../db/prisma.js"
 import { logger } from "../logger/index.js"
 import type { Anime } from "../generated/prisma/client.js"
 
-import { padTo2Digits, escape } from "../utils/index.js"
+import { padTo2Digits, escapeHtml } from "../utils/index.js"
 
 const commands = new Composer()
 
@@ -81,7 +81,7 @@ commands.command(['myanime', 'myanimes'], async (ctx) => {
         }
 
         if (animes.length > 0) {
-            const animelist = animes.slice(0, !query ? 10 : 30).map(anime => `<code>${anime.name}</code> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
+            const animelist = animes.slice(0, !query ? 10 : 30).map(anime => `<code>${escapeHtml(anime.name)}</code> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
 
             const text = `<b>Anime stored for you:</b>\n\n${animelist}`
 
@@ -101,7 +101,7 @@ commands.command(['myanime', 'myanimes'], async (ctx) => {
 
             const keyboard = Markup.inlineKeyboard(buttons)
 
-            return ctx.replyWithHTML(escape(text), keyboard).catch(logger.error)
+            return ctx.replyWithHTML(text, keyboard).catch(logger.error)
         }
         else {
             return ctx.replyWithHTML('<i>No anime found on DB</i>\n\nAdd some!')
@@ -128,7 +128,7 @@ commands.command(['onair', 'airing', 't'], async (ctx) => {
     })
 
     if (animes.length > 0) {
-        const animelist = animes.slice(0, 10).map(anime => `<code>${anime.name}</code> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
+        const animelist = animes.slice(0, 10).map(anime => `<code>${escapeHtml(anime.name)}</code> <b>[S${padTo2Digits(anime.season)}E${padTo2Digits(anime.episode)}]</b>`).join('\n')
 
         const text = `<b>Anime marked as 'On Air' stored for you:</b>\n\n${animelist}`
 
@@ -140,7 +140,7 @@ commands.command(['onair', 'airing', 't'], async (ctx) => {
 
         const keyboard = Markup.inlineKeyboard(buttons)
 
-        return ctx.replyWithHTML(escape(text), keyboard).catch(logger.error)
+        return ctx.replyWithHTML(text, keyboard).catch(logger.error)
     }
     else {
         return ctx.replyWithHTML('<i>No anime marked as "On Air" found on DB</i>\n\nAdd some!')

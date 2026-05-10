@@ -17,19 +17,19 @@ inline.on('inline_query', async (ctx) => {
         [
             Markup.button.callback(
                 'Search anime in AniList',
-                `AnimPage1-${query}`,
+                `AnimPage1-${encodeURIComponent(query)}`,
             ),
         ],
         [
             Markup.button.callback(
                 'Search character in AniList',
-                `CharPage1-${query}`,
+                `CharPage1-${encodeURIComponent(query)}`,
             ),
         ],
         [
             Markup.button.callback(
                 'Search in my anime list',
-                `Local_1_${userId}_${query}`,
+                `Local_1_${userId}_${encodeURIComponent(query)}`,
             ),
         ],
         [
