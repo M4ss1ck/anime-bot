@@ -4,7 +4,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --env-file=.env src/main.ts",
+    "dev": "NODE_OPTIONS='--dns-result-order=ipv4first' tsx watch --env-file=.env src/main.ts",
     "start": "node -r dotenv/config ./dist/main.js",
     "start:prod": "node -r dotenv/config ./dist/main.js",
     "build": "prisma generate && tsc -p ./tsconfig.json",
