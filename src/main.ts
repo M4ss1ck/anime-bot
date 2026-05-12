@@ -1,12 +1,10 @@
-import { Agent, setGlobalDispatcher } from "undici";
-setGlobalDispatcher(new Agent({ connect: { family: 4 } }));
-
 import { Telegraf } from 'telegraf'
+import type { Update } from 'telegraf/types'
+import { Elysia } from 'elysia'
 import { logger } from './logger/index.js'
 import anime from './middleware/anime.js'
 import novel from './middleware/novels.js'
 import commands from './middleware/commands.js'
-// import users from './middleware/createUsers.js'
 import actions from './middleware/actions.js'
 import inline from './middleware/inline.js'
 import admin from './middleware/admin.js'
@@ -22,7 +20,6 @@ import { runScheduled } from './utils/index.js'
 const bot = new Telegraf(process.env.BOT_TOKEN ?? '')
 
 bot
-    // .use(users)
     .use(commandLogger)
     .use(admin)
     .use(exporter)
@@ -36,6 +33,11 @@ bot
     .use(broadcast)
     .use(scheduler)
     .use(notify)
+
+bot.catch((err) => {
+    logger.info('[bot.catch] ERROR')
+    logger.error(err)
+})
 
 const commandList = await bot.telegram
     .getMyCommands()
@@ -127,19 +129,64 @@ if (commandList && !commandList.some((command) => command.command === latestComm
     logger.info("Bot commands are up-to-date. No update needed.");
 }
 
-// Iniciar bot
-bot.launch({
-    dropPendingUpdates: true,
-})
-logger.success('BOT INICIADO')
-
-bot.catch((err) => {
-    logger.info('[bot.catch] ERROR')
-    logger.error(err)
-})
-
 await runScheduled(bot)
 
-// Enable graceful stop
-process.once('SIGINT', () => bot.stop('SIGINT'))
-process.once('SIGTERM', () => bot.stop('SIGTERM'))
+const isProduction = process.env.NODE_ENV === 'production'
+
+if (isProduction) {
+    const botToken = process.env.BOT_TOKEN
+    const webhookDomain = process.env.WEBHOOK_DOMAIN
+    const port = Number(process.env.PORT ?? '3000')
+
+    if (!botToken) {
+        logger.error('BOT_TOKEN is required for webhook mode')
+        process.exit(1)
+    }
+    if (!webhookDomain) {
+        logger.error('WEBHOOK_DOMAIN is required for webhook mode')
+        process.exit(1)
+    }
+
+    const webhookPath = `/webhook/${botToken}`
+    const webhookUrl = `${webhookDomain.replace(/\/$/, '')}${webhookPath}`
+
+    await bot.telegram.setWebhook(webhookUrl).catch((e) => {
+        logger.error('Failed to set webhook:', e)
+        process.exit(1)
+    })
+    logger.info(`Webhook set to ${webhookUrl}`)
+
+    const app = new Elysia()
+        .get('/health', () => 'ok')
+        .post(webhookPath, async ({ body, set }) => {
+            try {
+                await bot.handleUpdate(body as Update)
+            } catch (err) {
+                logger.error('Error handling update:', err)
+            }
+            set.status = 200
+            return 'ok'
+        })
+
+    app.listen(port)
+
+    logger.success(`BOT STARTED (webhook mode on port ${port})`)
+
+    const gracefulStop = (signal: string) => {
+        logger.info(`Received ${signal}, stopping...`)
+        bot.stop(signal)
+        app.server?.stop()
+        process.exit(0)
+    }
+
+    process.once('SIGINT', () => gracefulStop('SIGINT'))
+    process.once('SIGTERM', () => gracefulStop('SIGTERM'))
+} else {
+    bot.launch({
+        dropPendingUpdates: true,
+    })
+    logger.success('BOT STARTED (polling mode)')
+
+    process.once('SIGINT', () => bot.stop('SIGINT'))
+    process.once('SIGTERM', () => bot.stop('SIGTERM'))
+}
