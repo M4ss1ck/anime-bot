@@ -41,6 +41,7 @@ novel.command('novel', async (ctx) => {
 })
 
 novel.callbackQuery(/NovelPage\d+-/i, async (ctx) => {
+    ctx.answerCallbackQuery().catch(logger.error)
     const pageString = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data?.match(/NovelPage(\d+)/i)?.[1] : null
     const page = parseInt(pageString ?? '1')
     const search = 'data' in ctx.callbackQuery ? decodeURIComponent(ctx.callbackQuery.data?.replace(/NovelPage\d+-/i, '') ?? '') : ''
@@ -572,6 +573,8 @@ novel.callbackQuery(/mynovel_\d+_\d+/i, async ctx => {
                 return
             }
 
+            await ctx.answerCallbackQuery().catch(e => logger.error(e))
+
             const skip = (parseInt(page) - 1) * 10
 
             const novels = await prisma.novel.findMany({
@@ -621,6 +624,8 @@ novel.callbackQuery(/releasing_\d+_\d+/i, async ctx => {
                 return
             }
 
+            await ctx.answerCallbackQuery().catch(e => logger.error(e))
+
             const skip = (parseInt(page) - 1) * 10
 
             const novels = await prisma.novel.findMany({
@@ -666,13 +671,13 @@ novel.callbackQuery(/ndf_\d+_\d+/i, async ctx => {
         return
     }
 
+    await ctx.answerCallbackQuery('Fetching details...').catch(logger.error)
+
     const savedNovel = await prisma.novel.findUnique({ where: { id: parseInt(novelId) } })
     if (!savedNovel) {
-        await ctx.answerCallbackQuery('Novel not found').catch(logger.error)
+        await ctx.reply('Novel not found').catch(logger.error)
         return
     }
-
-    await ctx.answerCallbackQuery('Fetching details...').catch(logger.error)
 
     if (savedNovel.anilistId) {
         const details = await getBestDetails('reading', savedNovel)
@@ -812,6 +817,8 @@ novel.callbackQuery(/nfm_\d+_\d+/i, async ctx => {
                 return
             }
 
+            await ctx.answerCallbackQuery().catch(logger.error)
+
             const results = await getNovel(parseInt(animeId))
             if (!results) return logger.error('Error with novel update/add')
             const novel = results.Media
@@ -846,7 +853,7 @@ novel.callbackQuery(/nfm_\d+_\d+/i, async ctx => {
                         anilistId: novel.id,
                     }
                 })
-                .then(() => ctx.answerCallbackQuery('Anime added/updated!').catch(logger.error))
+                .then(() => logger.info('Anime added/updated!'))
                 .catch(logger.error)
 
         } catch (error) {

@@ -36,6 +36,7 @@ anime.command('anime', async (ctx) => {
 })
 
 anime.callbackQuery(/AnimPage\d+-/i, async (ctx) => {
+    ctx.answerCallbackQuery().catch(logger.error)
     const pageString = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data?.match(/AnimPage(\d+)/i)?.[1] : null
     const page = parseInt(pageString ?? '1')
     const search = 'data' in ctx.callbackQuery ? decodeURIComponent(ctx.callbackQuery.data?.replace(/AnimPage\d+-/i, '') ?? '') : ''
@@ -151,6 +152,7 @@ anime.command('character', async (ctx) => {
 })
 
 anime.callbackQuery(/CharPage\d+-/i, async (ctx) => {
+    ctx.answerCallbackQuery().catch(logger.error)
     const pageString = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data?.match(/CharPage(\d+)/i)?.[1] : null
     const page = parseInt(pageString ?? '1')
     const search = 'data' in ctx.callbackQuery ? decodeURIComponent(ctx.callbackQuery.data?.replace(/CharPage\d+-/i, '') ?? '') : ''
@@ -182,6 +184,7 @@ anime.callbackQuery(/CharPage\d+-/i, async (ctx) => {
 })
 
 anime.callbackQuery(/getCharacter/, async (ctx) => {
+    ctx.answerCallbackQuery().catch(logger.error)
     const characterId = parseInt('data' in ctx.callbackQuery ? ctx.callbackQuery.data?.replace('getCharacter', '') : '')
     if (!isNaN(characterId)) {
         // buscar en AniList

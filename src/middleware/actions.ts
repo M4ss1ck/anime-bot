@@ -252,6 +252,8 @@ actions.callbackQuery(/myanime_\d+_\d+/i, async (ctx) => {
                 return
             }
 
+            await ctx.answerCallbackQuery().catch(e => logger.error(e))
+
             const skip = (parseInt(page) - 1) * 10
 
             const animes = await prisma.anime.findMany({
@@ -298,6 +300,8 @@ actions.callbackQuery(/airing_\d+_\d+/i, async (ctx) => {
                 await ctx.answerCallbackQuery('This is not your anime').catch(e => logger.error(e))
                 return
             }
+
+            await ctx.answerCallbackQuery().catch(e => logger.error(e))
 
             const skip = (parseInt(page) - 1) * 10
 
@@ -350,6 +354,8 @@ actions.callbackQuery(/Local_\d+_\d+_.+/i, async (ctx) => {
                 return
             }
 
+            await ctx.answerCallbackQuery().catch(e => logger.error(e))
+
             const skip = (parseInt(page) - 1) * 10
 
             const animes = await prisma.anime.findMany({
@@ -401,8 +407,10 @@ actions.callbackQuery(/afm_\d+_\d+_\d+_\d+/i, async (ctx) => {
                 return
             }
 
+            await ctx.answerCallbackQuery().catch(e => logger.error(e))
+
             const results = await getAnime(parseInt(animeId))
-            if (!results) return ctx.answerCallbackQuery('Anime not found').catch(e => logger.error(e))
+            if (!results) return logger.error('Anime not found')
             const anime = results.Media
             const nativeTitle = anime.title.native
             const romajiTitle = anime.title.romaji
@@ -439,7 +447,7 @@ actions.callbackQuery(/afm_\d+_\d+_\d+_\d+/i, async (ctx) => {
                         onAir: anime.nextAiringEpisode?.airingAt ? true : false,
                     }
                 })
-                .then(() => ctx.answerCallbackQuery('Anime added/updated!').catch(logger.error))
+                .then(() => logger.info('Anime added/updated!'))
                 .catch(logger.error)
 
         } catch (error) {
@@ -457,13 +465,13 @@ actions.callbackQuery(/adf_\d+_\d+/i, async (ctx) => {
         return
     }
 
+    await ctx.answerCallbackQuery('Fetching details...').catch(logger.error)
+
     const anime = await prisma.anime.findUnique({ where: { id: parseInt(animeId) } })
     if (!anime) {
-        await ctx.answerCallbackQuery('Anime not found').catch(logger.error)
+        await ctx.reply('Anime not found').catch(logger.error)
         return
     }
-
-    await ctx.answerCallbackQuery('Fetching details...').catch(logger.error)
 
     if (anime.anilistId) {
         const details = await getBestDetails('anime', anime)
