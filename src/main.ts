@@ -131,9 +131,9 @@ if (commandList && !commandList.some((command) => command.command === latestComm
 
 await runScheduled(bot)
 
-const mode = process.env.BOT_MODE ?? (process.env.NODE_ENV === 'production' ? 'webhook' : 'polling')
+const isProduction = process.env.NODE_ENV === 'production'
 
-if (mode === 'webhook') {
+if (isProduction) {
     const botToken = process.env.BOT_TOKEN
     const webhookDomain = process.env.WEBHOOK_DOMAIN
     const port = Number(process.env.PORT ?? '3000')
@@ -170,7 +170,7 @@ if (mode === 'webhook') {
 
     app.listen(port)
 
-    logger.success(`BOT INICIADO (webhook mode on port ${port})`)
+    logger.success(`BOT STARTED (webhook mode on port ${port})`)
 
     const gracefulStop = (signal: string) => {
         logger.info(`Received ${signal}, stopping...`)
@@ -185,7 +185,7 @@ if (mode === 'webhook') {
     bot.launch({
         dropPendingUpdates: true,
     })
-    logger.success('BOT INICIADO (polling mode)')
+    logger.success('BOT STARTED (polling mode)')
 
     process.once('SIGINT', () => bot.stop('SIGINT'))
     process.once('SIGTERM', () => bot.stop('SIGTERM'))

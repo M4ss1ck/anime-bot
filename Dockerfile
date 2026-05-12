@@ -16,6 +16,5 @@ RUN bun prisma generate
 EXPOSE 3000
 
 ENV NODE_ENV=production
-ENV BOT_MODE=webhook
 
 CMD ["bun", "run", "src/main.ts"]
