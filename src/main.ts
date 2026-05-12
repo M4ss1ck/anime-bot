@@ -1,4 +1,4 @@
-import { Bot, webhookCallback } from 'grammy'
+import { Bot, webhookCallback, API_CONSTANTS } from 'grammy'
 import { autoRetry } from '@grammyjs/auto-retry'
 import { Elysia } from 'elysia'
 import { logger } from './logger/index.js'
@@ -153,7 +153,9 @@ if (isProduction) {
     const webhookPath = `/webhook/${botToken}`
     const webhookUrl = `${webhookDomain.replace(/\/$/, '')}${webhookPath}`
 
-    await bot.api.setWebhook(webhookUrl).catch((e) => {
+    await bot.api.setWebhook(webhookUrl, {
+        allowed_updates: API_CONSTANTS.ALL_UPDATE_TYPES
+    }).catch((e) => {
         logger.error('Failed to set webhook:', e)
         process.exit(1)
     })
@@ -179,7 +181,9 @@ if (isProduction) {
     process.once('SIGTERM', () => gracefulStop('SIGTERM'))
 } else {
     await bot.api.deleteWebhook({ drop_pending_updates: true })
-    bot.start()
+    bot.start({
+        allowed_updates: API_CONSTANTS.ALL_UPDATE_TYPES
+    })
     logger.success('BOT STARTED (polling mode)')
 
     process.once('SIGINT', () => bot.stop())
