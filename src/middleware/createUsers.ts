@@ -1,4 +1,4 @@
-import { Composer } from 'telegraf'
+import { Composer } from 'grammy'
 import { prisma } from '../db/prisma.js'
 
 const users = new Composer()

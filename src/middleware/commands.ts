@@ -1,4 +1,4 @@
-import { Composer, Markup } from "telegraf"
+import { Composer, InlineKeyboard } from "grammy"
 import axios from "axios"
 import { prisma } from "../db/prisma.js"
 import { logger } from "../logger/index.js"
@@ -8,15 +8,16 @@ import { padTo2Digits, escapeHtml } from "../utils/index.js"
 
 const commands = new Composer()
 
-commands.start(async ctx => {
-    return ctx.replyWithHTML(
-        `Welcome!\n\nI can help you to look for anime and other stuff\nType /help to see what I can do`
+commands.command('start', async (ctx) => {
+    return ctx.reply(
+        `Welcome!\n\nI can help you to look for anime and other stuff\nType /help to see what I can do`,
+        { parse_mode: 'HTML' }
     )
 })
 
-commands.help(async ctx => {
-    return ctx.replyWithHTML(
-        `Hi, ${ctx.from.first_name}!\n\n` +
+commands.command('help', async (ctx) => {
+    return ctx.reply(
+        `Hi, ${ctx.from!.first_name}!\n\n` +
         `<b>📺 Anime Management</b>\n` +
         `<code>/save &lt;season&gt; &lt;episode&gt; &lt;name&gt;</code> - Save anime progress\n` +
         `<i>(season and episode must be numbers)</i>\n` +
@@ -39,18 +40,19 @@ commands.help(async ctx => {
         `<code>/check</code> - Check for new seasons/volumes manually\n` +
         `<code>/notify</code> - Activate daily summaries in this group\n` +
         `<code>/opt_in</code> - Opt-in for daily summaries\n` +
-        `<code>/notify_on &lt;day&gt;</code> - Preview summary for a specific day`
+        `<code>/notify_on &lt;day&gt;</code> - Preview summary for a specific day`,
+        { parse_mode: 'HTML' }
     )
 })
 
 commands.command(['myanime', 'myanimes'], async (ctx) => {
     try {
-        const query = ctx.message.text.replace(/^\/myanime(s)?((@\w+)?\s+)?/i, "")
+        const query = ctx.message!.text.replace(/^\/myanime(s)?((@\w+)?\s+)?/i, "")
         let animes: Anime[] = []
         if (query.length > 0) {
             animes = await prisma.anime.findMany({
                 where: {
-                    userId: ctx.from.id.toString(),
+                    userId: ctx.from!.id.toString(),
                     name: {
                         contains: query
                     },
@@ -67,7 +69,7 @@ commands.command(['myanime', 'myanimes'], async (ctx) => {
         } else {
             animes = await prisma.anime.findMany({
                 where: {
-                    userId: ctx.from.id.toString()
+                    userId: ctx.from!.id.toString()
                 },
                 take: 11,
                 orderBy: [
@@ -85,26 +87,18 @@ commands.command(['myanime', 'myanimes'], async (ctx) => {
 
             const text = `<b>Anime stored for you:</b>\n\n${animelist}`
 
-            const buttons = animes.slice(0, !query ? 10 : 30).map(anime => [Markup.button.callback(`"${anime.name}"`, `animeInfo_${anime.id}_${ctx.from.id.toString()}`)])
+            const keyboard = new InlineKeyboard()
+            for (const anime of animes.slice(0, !query ? 10 : 30)) {
+                keyboard.text(`"${anime.name}"`, `animeInfo_${anime.id}_${ctx.from!.id.toString()}`).row()
+            }
+            keyboard.text('⏭', `myanime_2_${ctx.from!.id.toString()}`).row()
+            keyboard.text('📋 Full List 📋', `myanime_1_${ctx.from!.id.toString()}`).row()
+            keyboard.text('💾 Export .txt 💾', `txt_${ctx.from!.id.toString()}`)
 
-            buttons.push([
-                Markup.button.callback('⏭', `myanime_2_${ctx.from.id.toString()}`, animes.length < 11 || query.length > 0)
-            ])
-
-            buttons.push([
-                Markup.button.callback('📋 Full List 📋', `myanime_1_${ctx.from.id.toString()}`, !query)
-            ])
-
-            buttons.push([
-                Markup.button.callback('💾 Export .txt 💾', `txt_${ctx.from.id.toString()}`),
-            ])
-
-            const keyboard = Markup.inlineKeyboard(buttons)
-
-            return ctx.replyWithHTML(text, keyboard).catch(logger.error)
+            return ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard }).catch(logger.error)
         }
         else {
-            return ctx.replyWithHTML('<i>No anime found on DB</i>\n\nAdd some!')
+            return ctx.reply('<i>No anime found on DB</i>\n\nAdd some!', { parse_mode: 'HTML' })
         }
     } catch (error) {
         logger.error(error)
@@ -114,7 +108,7 @@ commands.command(['myanime', 'myanimes'], async (ctx) => {
 commands.command(['onair', 'airing', 't'], async (ctx) => {
     const animes = await prisma.anime.findMany({
         where: {
-            userId: ctx.from.id.toString(),
+            userId: ctx.from!.id.toString(),
             onAir: true
         },
         take: 11,
@@ -132,38 +126,36 @@ commands.command(['onair', 'airing', 't'], async (ctx) => {
 
         const text = `<b>Anime marked as 'On Air' stored for you:</b>\n\n${animelist}`
 
-        const buttons = animes.slice(0, 10).map(anime => [Markup.button.callback(`"${anime.name}"`, `animeInfo_${anime.id}_${ctx.from.id.toString()}_airing`)])
+        const keyboard = new InlineKeyboard()
+        for (const anime of animes.slice(0, 10)) {
+            keyboard.text(`"${anime.name}"`, `animeInfo_${anime.id}_${ctx.from!.id.toString()}_airing`).row()
+        }
+        keyboard.text('⏭', `airing_2_${ctx.from!.id.toString()}`)
 
-        buttons.push([
-            Markup.button.callback('⏭', `airing_2_${ctx.from.id.toString()}`, animes.length < 11)
-        ])
-
-        const keyboard = Markup.inlineKeyboard(buttons)
-
-        return ctx.replyWithHTML(text, keyboard).catch(logger.error)
+        return ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard }).catch(logger.error)
     }
     else {
-        return ctx.replyWithHTML('<i>No anime marked as "On Air" found on DB</i>\n\nAdd some!')
+        return ctx.reply('<i>No anime marked as "On Air" found on DB</i>\n\nAdd some!', { parse_mode: 'HTML' })
     }
 })
 
-commands.command('save', async ctx => {
+commands.command('save', async (ctx) => {
     const regex = /^\/save (\d+) (\d+) (.+)([\r\n\u0085\u2028\u2029]+(.+)?)?/i
-    if (regex.test(ctx.message.text)) {
+    if (regex.test(ctx.message!.text)) {
         try {
-            const matches = ctx.message.text.match(regex)
+            const matches = ctx.message!.text.match(regex)
             if (matches) {
                 const season = matches[1]
                 const episode = matches[2]
                 const name = matches[3]
-                const note = ctx.message.text.replace(/^\/save (\d+) (\d+) (.+)([\r\n\u0085\u2028\u2029]+)?/i, '')
+                const note = ctx.message!.text.replace(/^\/save (\d+) (\d+) (.+)([\r\n\u0085\u2028\u2029]+)?/i, '')
 
                 await prisma.anime
                     .upsert({
                         where: {
                             name_userId: {
                                 name: name.trim(),
-                                userId: ctx.from.id.toString()
+                                userId: ctx.from!.id.toString()
                             }
                         },
                         create: {
@@ -174,10 +166,10 @@ commands.command('save', async ctx => {
                             user: {
                                 connectOrCreate: {
                                     where: {
-                                        id: ctx.from.id.toString(),
+                                        id: ctx.from!.id.toString(),
                                     },
                                     create: {
-                                        id: ctx.from.id.toString(),
+                                        id: ctx.from!.id.toString(),
                                     }
                                 }
                             }
@@ -201,15 +193,16 @@ commands.command('save', async ctx => {
     }
 })
 
-commands.command('import', async ctx => {
+commands.command('import', async (ctx) => {
     if (
-        ctx.message.reply_to_message
-        && 'document' in ctx.message.reply_to_message
-        && ctx.message.reply_to_message.document.mime_type === 'text/plain'
+        ctx.message!.reply_to_message
+        && 'document' in ctx.message!.reply_to_message
+        && ctx.message!.reply_to_message.document!.mime_type === 'text/plain'
     ) {
         try {
-            const fileId = ctx.message.reply_to_message.document.file_id
-            const { href } = await ctx.telegram.getFileLink(fileId)
+            const fileId = ctx.message!.reply_to_message.document!.file_id
+            const file = await ctx.api.getFile(fileId)
+            const href = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`
             const { data } = await axios(href)
             const linesArray: string = data.split('\n')
             const regex = /.+ (\[)?S\d{2,}E\d{2,}(\])?(.+)?/i
@@ -230,7 +223,7 @@ commands.command('import', async ctx => {
                         where: {
                             name_userId: {
                                 name: name,
-                                userId: ctx.from.id.toString()
+                                userId: ctx.from!.id.toString()
                             }
                         },
                         create: {
@@ -241,10 +234,10 @@ commands.command('import', async ctx => {
                             user: {
                                 connectOrCreate: {
                                     where: {
-                                        id: ctx.from.id.toString(),
+                                        id: ctx.from!.id.toString(),
                                     },
                                     create: {
-                                        id: ctx.from.id.toString(),
+                                        id: ctx.from!.id.toString(),
                                     }
                                 }
                             }
@@ -261,7 +254,7 @@ commands.command('import', async ctx => {
                         ctx.reply('Error creating/updating that record')
                     })
             }
-            return ctx.replyWithHTML(`${recordsCount} records were created, updated or ignored`)
+            return ctx.reply(`${recordsCount} records were created, updated or ignored`, { parse_mode: 'HTML' })
         } catch (error) {
             logger.error('Failed to import anime list')
             logger.error(error)

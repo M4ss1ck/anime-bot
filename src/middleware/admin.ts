@@ -1,4 +1,4 @@
-import { Composer } from "telegraf"
+import { Composer, InputFile } from "grammy"
 import { prisma } from "../db/prisma.js"
 import { logger } from "../logger/index.js"
 import axios from "axios"
@@ -9,7 +9,7 @@ const adminID = process.env.ADMIN_ID ?? '123'
 
 const admin = new Composer()
 
-admin.command('users', Composer.acl(Number(adminID), async ctx => {
+admin.filter(ctx => ctx.from?.id === Number(adminID)).command('users', async ctx => {
     const fileName = `${Date.now()}_userlist.txt`
     const users = await prisma.user.findMany({
         include: {
@@ -21,13 +21,13 @@ admin.command('users', Composer.acl(Number(adminID), async ctx => {
 
     await fs.writeFile(fileName, animelist)
 
-    await ctx.replyWithDocument({ source: fileName, filename: fileName }, { caption: 'List of users' })
+    await ctx.replyWithDocument(new InputFile(fileName, fileName), { caption: 'List of users' })
 
     await fs.unlink(fileName).catch(logger.error)
-}))
+})
 
 // Export entire database to JSON file (uses raw SQL to handle schema mismatches)
-admin.command('dbexport', Composer.acl(Number(adminID), async ctx => {
+admin.filter(ctx => ctx.from?.id === Number(adminID)).command('dbexport', async ctx => {
     try {
         await ctx.reply('📦 Exporting database using raw SQL...')
 
@@ -156,7 +156,7 @@ admin.command('dbexport', Composer.acl(Number(adminID), async ctx => {
 • Notification History: ${exportData.counts.notificationHistory}`
 
         await ctx.replyWithDocument(
-            { source: fileName, filename: fileName },
+            new InputFile(fileName, fileName),
             { caption: `✅ Database exported successfully!\n\n${summary}` }
         )
 
@@ -165,18 +165,19 @@ admin.command('dbexport', Composer.acl(Number(adminID), async ctx => {
         logger.error(error)
         await ctx.reply('❌ Export failed: ' + String(error))
     }
-}))
+})
 
 // Import database from JSON file (reply to a .json file with this command)
-admin.command('dbimport', Composer.acl(Number(adminID), async ctx => {
+admin.filter(ctx => ctx.from?.id === Number(adminID)).command('dbimport', async ctx => {
     try {
         // Check if replying to a document
-        if (!ctx.message.reply_to_message || !('document' in ctx.message.reply_to_message)) {
+        const reply = ctx.message!.reply_to_message
+        if (!reply || !('document' in reply)) {
             await ctx.reply('⚠️ Please reply to a JSON export file with /dbimport')
             return
         }
 
-        const document = ctx.message.reply_to_message.document
+        const document = reply.document!
         if (!document.file_name?.endsWith('.json')) {
             await ctx.reply('⚠️ Please reply to a .json file')
             return
@@ -185,7 +186,8 @@ admin.command('dbimport', Composer.acl(Number(adminID), async ctx => {
         await ctx.reply('📥 Downloading and parsing export file...')
 
         // Download the file
-        const { href } = await ctx.telegram.getFileLink(document.file_id)
+        const file = await ctx.api.getFile(document.file_id)
+        const href = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`
         const { data: exportData } = await axios.get(href)
 
         // Validate export structure
@@ -326,6 +328,6 @@ admin.command('dbimport', Composer.acl(Number(adminID), async ctx => {
         logger.error(error)
         await ctx.reply('❌ Import failed. Check logs for details.\n\n' + String(error))
     }
-}))
+})
 
 export default admin

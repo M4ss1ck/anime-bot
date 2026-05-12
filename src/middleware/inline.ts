@@ -1,4 +1,4 @@
-import { Composer, Markup } from 'telegraf'
+import { Composer, InlineKeyboard } from 'grammy'
 import { logger } from '../logger/index.js'
 
 const inline = new Composer()
@@ -8,51 +8,23 @@ inline.on('inline_query', async (ctx) => {
     const userId = ctx.inlineQuery.from.id
     const response = [
         {
+            type: 'article' as const,
+            id: `Search ${query}`,
             title: `Search ${query}`,
             description: 'You can choose between internal DB or AniList API',
-            message_text: `Searching "${query}"`,
+            input_message_content: {
+                message_text: `Searching "${query}"`,
+            },
+            reply_markup: new InlineKeyboard()
+                .text('Search anime in AniList', `AnimPage1-${encodeURIComponent(query)}`).row()
+                .text('Search character in AniList', `CharPage1-${encodeURIComponent(query)}`).row()
+                .text('Search in my anime list', `Local_1_${userId}_${encodeURIComponent(query)}`).row()
+                .text('Show full list', `myanime_1_${userId}`),
         },
     ]
-    const markup = Markup.inlineKeyboard([
-        [
-            Markup.button.callback(
-                'Search anime in AniList',
-                `AnimPage1-${encodeURIComponent(query)}`,
-            ),
-        ],
-        [
-            Markup.button.callback(
-                'Search character in AniList',
-                `CharPage1-${encodeURIComponent(query)}`,
-            ),
-        ],
-        [
-            Markup.button.callback(
-                'Search in my anime list',
-                `Local_1_${userId}_${encodeURIComponent(query)}`,
-            ),
-        ],
-        [
-            Markup.button.callback(
-                'Show full list',
-                `myanime_1_${userId}`,
-            ),
-        ],
-    ])
-    const recipes = response.map(({ title, description, message_text }) => ({
-        type: 'article',
-        id: title,
-        title,
-        description,
-        // thumb_url: thumbnail,
-        input_message_content: {
-            message_text,
-        },
-        ...markup,
-    }))
 
     return ctx
-        .answerInlineQuery(recipes as never, { cache_time: 5, is_personal: true })
+        .answerInlineQuery(response, { cache_time: 5, is_personal: true })
         .catch(e => logger.error('ERROR WITH INLINE QUERY\n', e))
 })
 

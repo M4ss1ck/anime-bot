@@ -1,12 +1,13 @@
-import { Composer, Context, Telegraf } from 'telegraf';
+import { Composer } from 'grammy';
+import type { Context, Api } from 'grammy';
 import { logger } from '../logger/index.js';
-import { prisma } from '../db/prisma.js'; // Import Prisma client
+import { prisma } from '../db/prisma.js';
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween.js';
 import utc from 'dayjs/plugin/utc.js';
 
 dayjs.extend(isBetween);
-dayjs.extend(utc); // Use UTC or server's local time consistently
+dayjs.extend(utc);
 
 // --- Refined Anime Service Function ---
 /**
@@ -33,7 +34,6 @@ async function getUserAiringToday(userId: string, targetDay?: dayjs.Dayjs): Prom
         });
 
         const animeJobs = userJobs.filter(job => /^\d+:/.test(job.id));
-        // logger.debug(`Found ${animeJobs.length} potential anime jobs for user ${userId}`);
 
         for (const job of animeJobs) {
             try {
@@ -66,7 +66,6 @@ async function getUserAiringToday(userId: string, targetDay?: dayjs.Dayjs): Prom
                         const nextEpisode = anime.episode + 1;
                         const formattedString = `${anime.name} - Ep ${nextEpisode}`;
                         airingTodayStrings.push(formattedString);
-                        // logger.debug(`Adding anime to today's list: ${formattedString}`);
                     } else {
                         logger.warn(`Could not find Anime record for ID ${animeId} from job ${job.id} for user ${userId}`);
                     }
@@ -79,7 +78,6 @@ async function getUserAiringToday(userId: string, targetDay?: dayjs.Dayjs): Prom
         logger.error(`Failed to fetch or process jobs for user ${userId}:`, error);
     }
 
-    // logger.debug(`Final list for user ${userId} today: ${airingTodayStrings}`);
     return airingTodayStrings;
 }
 // --- End Refined Function ---
@@ -114,9 +112,9 @@ composer.command('notify', async (ctx) => {
     }
 
     const groupId = ctx.chat.id.toString(); // Use string for Prisma ID
-    const userId = ctx.from.id;
+    const userId = ctx.from!.id;
     const userIdStr = userId.toString();
-    const userName = ctx.from.first_name;
+    const userName = ctx.from!.first_name;
 
     try {
         // Ensure the user exists in the DB first
@@ -198,9 +196,9 @@ composer.command('opt_in', async (ctx) => {
     }
 
     const groupId = ctx.chat.id.toString();
-    const userId = ctx.from.id;
+    const userId = ctx.from!.id;
     const userIdStr = userId.toString();
-    const userName = ctx.from.first_name;
+    const userName = ctx.from!.first_name;
 
     try {
         // Ensure the user exists in the DB first
@@ -251,7 +249,7 @@ composer.command('notify_on', async (ctx) => {
     }
 
     const groupId = ctx.chat.id.toString();
-    const messageText = ctx.message.text;
+    const messageText = ctx.message!.text;
     const requestedDay = messageText.split(' ')[1]?.toLowerCase();
 
     if (!requestedDay) {
@@ -329,9 +327,9 @@ composer.command('notify_on', async (ctx) => {
 /**
  * Generates and sends daily anime summaries to subscribed groups.
  * This function should be scheduled to run daily.
- * @param bot The Telegraf bot instance.
+ * @param bot The grammY bot instance.
  */
-export async function sendDailySummaries(bot: Telegraf<Context>) {
+export async function sendDailySummaries(api: Api) {
     logger.info('Starting daily summary generation task...');
     try {
         const groups = await prisma.notificationGroup.findMany({
@@ -375,7 +373,7 @@ export async function sendDailySummaries(bot: Telegraf<Context>) {
                 message += '\n\nEnjoy your watch!';
 
                 try {
-                    await bot.telegram.sendMessage(groupId, message);
+                    await api.sendMessage(groupId, message);
                     logger.info(`Sent daily summary to group ${groupId} (${uniqueAnime.length} unique items).`);
                 } catch (error: any) {
                     logger.error(`Failed to send summary to group ${groupId}: ${error.message || error}`);

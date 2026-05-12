@@ -1,4 +1,4 @@
-import { Telegraf } from 'telegraf'
+import { Bot } from 'grammy'
 
 const botToken = process.env.BOT_TOKEN
 const webhookDomain = process.env.WEBHOOK_DOMAIN
@@ -16,15 +16,15 @@ if (!webhookDomain) {
 const webhookPath = `/webhook/${botToken}`
 const webhookUrl = `${webhookDomain.replace(/\/$/, '')}${webhookPath}`
 
-const bot = new Telegraf(botToken)
+const bot = new Bot(botToken)
 
 try {
-    await bot.telegram.setWebhook(webhookUrl)
+    await bot.api.setWebhook(webhookUrl)
     console.log(`Webhook set successfully: ${webhookUrl}`)
 } catch (error) {
     console.error('Failed to set webhook:', error)
     process.exit(1)
 } finally {
-    bot.stop()
+    await bot.stop()
     process.exit(0)
 }

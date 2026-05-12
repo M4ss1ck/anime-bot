@@ -1,5 +1,5 @@
-import { Telegraf } from 'telegraf'
-import type { Update } from 'telegraf/types'
+import { Bot, webhookCallback, API_CONSTANTS } from 'grammy'
+import { autoRetry } from '@grammyjs/auto-retry'
 import { Elysia } from 'elysia'
 import { logger } from './logger/index.js'
 import anime from './middleware/anime.js'
@@ -17,7 +17,15 @@ import notify from './middleware/notify.js'
 import check from './middleware/check.js'
 import { runScheduled } from './utils/index.js'
 
-const bot = new Telegraf(process.env.BOT_TOKEN ?? '')
+const botToken = process.env.BOT_TOKEN
+if (!botToken) {
+    logger.error('BOT_TOKEN is required')
+    process.exit(1)
+}
+
+const bot = new Bot(botToken)
+
+bot.api.config.use(autoRetry())
 
 bot
     .use(commandLogger)
@@ -39,13 +47,13 @@ bot.catch((err) => {
     logger.error(err)
 })
 
-const commandList = await bot.telegram
+const commandList = await bot.api
     .getMyCommands()
     .catch((e) => logger.error(e));
 
 const latestCommand = 'export'
 if (commandList && !commandList.some((command) => command.command === latestCommand)) {
-    bot.telegram.setMyCommands([
+    bot.api.setMyCommands([
         {
             command: "myanime",
             description: "Show your stored anime."
@@ -134,14 +142,9 @@ await runScheduled(bot)
 const isProduction = process.env.NODE_ENV === 'production'
 
 if (isProduction) {
-    const botToken = process.env.BOT_TOKEN
     const webhookDomain = process.env.WEBHOOK_DOMAIN
     const port = Number(process.env.PORT ?? '3000')
 
-    if (!botToken) {
-        logger.error('BOT_TOKEN is required for webhook mode')
-        process.exit(1)
-    }
     if (!webhookDomain) {
         logger.error('WEBHOOK_DOMAIN is required for webhook mode')
         process.exit(1)
@@ -150,23 +153,19 @@ if (isProduction) {
     const webhookPath = `/webhook/${botToken}`
     const webhookUrl = `${webhookDomain.replace(/\/$/, '')}${webhookPath}`
 
-    await bot.telegram.setWebhook(webhookUrl).catch((e) => {
+    await bot.api.setWebhook(webhookUrl, {
+        allowed_updates: API_CONSTANTS.ALL_UPDATE_TYPES
+    }).catch((e) => {
         logger.error('Failed to set webhook:', e)
         process.exit(1)
     })
     logger.info(`Webhook set to ${webhookUrl}`)
 
+    const handleUpdate = webhookCallback(bot, 'elysia')
+
     const app = new Elysia()
         .get('/health', () => 'ok')
-        .post(webhookPath, async ({ body, set }) => {
-            try {
-                await bot.handleUpdate(body as Update)
-            } catch (err) {
-                logger.error('Error handling update:', err)
-            }
-            set.status = 200
-            return 'ok'
-        })
+        .post(webhookPath, handleUpdate)
 
     app.listen(port)
 
@@ -174,19 +173,19 @@ if (isProduction) {
 
     const gracefulStop = (signal: string) => {
         logger.info(`Received ${signal}, stopping...`)
-        bot.stop(signal)
-        app.server?.stop()
+        bot.stop()
         process.exit(0)
     }
 
     process.once('SIGINT', () => gracefulStop('SIGINT'))
     process.once('SIGTERM', () => gracefulStop('SIGTERM'))
 } else {
-    bot.launch({
-        dropPendingUpdates: true,
+    await bot.api.deleteWebhook({ drop_pending_updates: true })
+    bot.start({
+        allowed_updates: API_CONSTANTS.ALL_UPDATE_TYPES
     })
     logger.success('BOT STARTED (polling mode)')
 
-    process.once('SIGINT', () => bot.stop('SIGINT'))
-    process.once('SIGTERM', () => bot.stop('SIGTERM'))
+    process.once('SIGINT', () => bot.stop())
+    process.once('SIGTERM', () => bot.stop())
 }

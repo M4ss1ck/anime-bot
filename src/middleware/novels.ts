@@ -1,4 +1,4 @@
-import { Composer, Markup } from 'telegraf'
+import { Composer, InlineKeyboard, InputFile } from 'grammy'
 import { logger } from '../logger/index.js'
 import { getNovel, getNovels } from '../anilist-service/index.js'
 import { prisma } from '../db/prisma.js'
@@ -6,33 +6,33 @@ import { escapeHtml } from '../utils/index.js'
 import * as fs from 'fs/promises'
 import { getBestDetails, getDetailsByProvider, searchDetails, summarizeDetails, toReadingUpdate } from '../details-service/index.js'
 
+const btn = (text: string, callback_data: string) => ({ text, callback_data })
+
 const novel = new Composer()
 
 novel.command('novel', async (ctx) => {
-    const search = ctx.message.text.replace(/^\/novel((@\w+)?\s+)?/i, '')
+    const search = ctx.message!.text.replace(/^\/novel((@\w+)?\s+)?/i, '')
     if (search.length > 2) {
         // buscar en AniList
         try {
             const results = await getNovels(search)
             const media = results.Page?.media
-            const total = results.Page?.pageInfo?.total as number ?? 1
-            const perPage = results.Page?.pageInfo?.perPage as number ?? 5
             if (media && media.length > 0) {
                 const buttons = []
                 for (const novel of media)
-                    buttons.push([Markup.button.callback(novel.title.romaji ?? 'placeholder text', `getNovel${novel.id}`)])
+                    buttons.push([btn(novel.title.romaji ?? 'placeholder text', `getNovel${novel.id}`)])
 
                 buttons.push([
-                    Markup.button.callback('⏭', `NovelPage${2}-${encodeURIComponent(search)}`, total / perPage <= 1),
+                    btn('⏭', `NovelPage${2}-${encodeURIComponent(search)}`),
                 ])
 
-                const keyboard = Markup.inlineKeyboard(buttons)
+                const keyboard = InlineKeyboard.from(buttons)
                 const text = `Results for <b>${escapeHtml(search)}</b>`
 
-                return ctx.replyWithHTML(text, keyboard)
+                return ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard })
             }
             else {
-                return ctx.replyWithHTML('No novel found.')
+                return ctx.reply('No novel found.', { parse_mode: 'HTML' })
             }
         } catch (error) {
             logger.error(error)
@@ -40,7 +40,8 @@ novel.command('novel', async (ctx) => {
     }
 })
 
-novel.action(/NovelPage\d+-/i, async (ctx) => {
+novel.callbackQuery(/NovelPage\d+-/i, async (ctx) => {
+    ctx.answerCallbackQuery().catch(logger.error)
     const pageString = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data?.match(/NovelPage(\d+)/i)?.[1] : null
     const page = parseInt(pageString ?? '1')
     const search = 'data' in ctx.callbackQuery ? decodeURIComponent(ctx.callbackQuery.data?.replace(/NovelPage\d+-/i, '') ?? '') : ''
@@ -54,20 +55,18 @@ novel.action(/NovelPage\d+-/i, async (ctx) => {
             if (media && media.length > 0) {
                 const buttons = []
                 for (const novel of media)
-                    buttons.push([Markup.button.callback(novel.title.romaji ?? 'placeholder text', `getNovel${novel.id}`)])
+                    buttons.push([btn(novel.title.romaji ?? 'placeholder text', `getNovel${novel.id}`)])
 
                 const showPrevBtn = page >= 2
                 const showNextBtn = total / perPage > page
 
                 const lastRow = []
-                showPrevBtn && lastRow.push(Markup.button.callback('⏮', `NovelPage${page - 1}-${encodeURIComponent(search)}`))
-                showNextBtn && lastRow.push(Markup.button.callback('⏭', `NovelPage${page + 1}-${encodeURIComponent(search)}`))
+                showPrevBtn && lastRow.push(btn('⏮', `NovelPage${page - 1}-${encodeURIComponent(search)}`))
+                showNextBtn && lastRow.push(btn('⏭', `NovelPage${page + 1}-${encodeURIComponent(search)}`))
 
                 buttons.push(lastRow)
 
-                return ctx.editMessageReplyMarkup({
-                    inline_keyboard: buttons,
-                })
+                return ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: buttons } })
             }
         } catch (error) {
             logger.error(error)
@@ -75,8 +74,8 @@ novel.action(/NovelPage\d+-/i, async (ctx) => {
     }
 })
 
-novel.action(/getNovel/, async (ctx) => {
-    await ctx.answerCbQuery().catch(logger.error)
+novel.callbackQuery(/getNovel/, async (ctx) => {
+    await ctx.answerCallbackQuery().catch(logger.error)
     const novelId = parseInt('data' in ctx.callbackQuery ? ctx.callbackQuery.data?.replace('getNovel', '') : '')
     if (!isNaN(novelId)) {
         // buscar en AniList
@@ -90,19 +89,19 @@ Genres: ${media.genres ? media.genres.join(', ') : 'n/a'}\nVolumes: ${media.volu
                 const cover = media.coverImage.large
 
                 const addAction = `nfm_${ctx.from?.id}_${novelId}`.slice(0, 63)
-                const buttons = [[Markup.button.callback('Add to my list', addAction)]]
-                const keyboard = Markup.inlineKeyboard(buttons)
+                const buttons = [[btn('Add to my list', addAction)]]
+                const keyboard = InlineKeyboard.from(buttons)
 
                 return !ctx.callbackQuery.inline_message_id
                     ? ctx.replyWithPhoto(cover, {
-                        parse_mode: 'HTML',
                         caption: `${caption.slice(0, 1020)}</i>`,
-                        ...keyboard,
+                        parse_mode: 'HTML',
+                        reply_markup: keyboard,
                     }).catch(() => ctx.reply('Parsing error. Contact bot owner.'))
                     : ctx.editMessageText(`${caption.slice(0, 4090)}</i>`, { parse_mode: "HTML" }).catch(() => ctx.reply('Parsing error. Contact bot owner.'))
             }
             else {
-                return ctx.replyWithHTML('No novel found.')
+                return ctx.reply('No novel found.', { parse_mode: 'HTML' })
             }
         } catch (error) {
             logger.error(error)
@@ -113,7 +112,7 @@ Genres: ${media.genres ? media.genres.join(', ') : 'n/a'}\nVolumes: ${media.volu
 novel.command(['mynovel', 'mynovels'], async (ctx) => {
     const novels = await prisma.novel.findMany({
         where: {
-            userId: ctx.from.id.toString()
+            userId: ctx.from!.id.toString()
         },
         take: 11,
         orderBy: [
@@ -130,29 +129,29 @@ novel.command(['mynovel', 'mynovels'], async (ctx) => {
 
         const text = `<b>Novels stored for you:</b>\n\n${novelList}`
 
-        const buttons = novels.slice(0, 10).map(novels => [Markup.button.callback(`"${novels.name}"`, `novelInfo_${novels.id}_${ctx.from.id.toString()}`)])
+        const buttons = novels.slice(0, 10).map(novels => [btn(`"${novels.name}"`, `novelInfo_${novels.id}_${ctx.from!.id.toString()}`)])
 
         buttons.push([
-            Markup.button.callback('⏭', `mynovel_2_${ctx.from.id.toString()}`, novels.length < 11)
+            btn('⏭', `mynovel_2_${ctx.from!.id.toString()}`)
         ])
 
         buttons.push([
-            Markup.button.callback('💾 Export .txt 💾', `ntxt_${ctx.from.id.toString()}`),
+            btn('💾 Export .txt 💾', `ntxt_${ctx.from!.id.toString()}`),
         ])
 
-        const keyboard = Markup.inlineKeyboard(buttons)
+        const keyboard = InlineKeyboard.from(buttons)
 
-        return ctx.replyWithHTML(text, keyboard)
+        return ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard })
     }
     else {
-        return ctx.replyWithHTML('<i>No novels found on DB</i>\n\nAdd some!')
+        return ctx.reply('<i>No novels found on DB</i>\n\nAdd some!', { parse_mode: 'HTML' })
     }
 })
 
 novel.command(['releasing', 'r'], async (ctx) => {
     const novels = await prisma.novel.findMany({
         where: {
-            userId: ctx.from.id.toString(),
+            userId: ctx.from!.id.toString(),
             releasing: true
         },
         take: 11,
@@ -170,39 +169,39 @@ novel.command(['releasing', 'r'], async (ctx) => {
 
         const text = `<b>Novels marked as 'RELEASING' stored for you:</b>\n\n${novelList}`
 
-        const buttons = novels.slice(0, 10).map(novel => [Markup.button.callback(`"${novel.name}"`, `novelInfo_${novel.id}_${ctx.from.id.toString()}_rel`)])
+        const buttons = novels.slice(0, 10).map(novel => [btn(`"${novel.name}"`, `novelInfo_${novel.id}_${ctx.from!.id.toString()}_rel`)])
 
         buttons.push([
-            Markup.button.callback('⏭', `releasing_2_${ctx.from.id.toString()}`, novels.length < 11)
+            btn('⏭', `releasing_2_${ctx.from!.id.toString()}`)
         ])
 
-        const keyboard = Markup.inlineKeyboard(buttons)
+        const keyboard = InlineKeyboard.from(buttons)
 
-        return ctx.replyWithHTML(text, keyboard)
+        return ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard })
     }
     else {
-        return ctx.replyWithHTML('<i>No novel marked as "RELEASING" found on DB</i>\n\nAdd some!')
+        return ctx.reply('<i>No novel marked as "RELEASING" found on DB</i>\n\nAdd some!', { parse_mode: 'HTML' })
     }
 })
 
 novel.command('nsave', async ctx => {
     const regex = /^\/nsave (part\d+\s)?(vol\d+\s)?(ch\d+\s)?(.+)([\r\n\u0085\u2028\u2029]+(.+)?)?/i
-    if (regex.test(ctx.message.text)) {
+    if (regex.test(ctx.message!.text)) {
         try {
-            const match = ctx.message.text.match(regex)
+            const match = ctx.message!.text.match(regex)
             if (match) {
                 const partValue = match[1] ? match[1].trim().replace('part', '') : null;
                 const volValue = match[2] ? match[2].trim().replace('vol', '') : null;
                 const chValue = match[3] ? match[3].trim().replace('ch', '') : null;
                 const name = match[4] ? match[4].trim() : null
-                const note = ctx.message.text.replace(/^\/nsave (part\d+\s)?(vol\d+\s)?(ch\d+\s)?(.+)([\r\n\u0085\u2028\u2029]+)?/i, '')
+                const note = ctx.message!.text.replace(/^\/nsave (part\d+\s)?(vol\d+\s)?(ch\d+\s)?(.+)([\r\n\u0085\u2028\u2029]+)?/i, '')
                 if (name) {
                     await prisma.novel
                         .upsert({
                             where: {
                                 name_userId: {
                                     name: name,
-                                    userId: ctx.from.id.toString()
+                                    userId: ctx.from!.id.toString()
                                 }
                             },
                             create: {
@@ -214,10 +213,10 @@ novel.command('nsave', async ctx => {
                                 user: {
                                     connectOrCreate: {
                                         where: {
-                                            id: ctx.from.id.toString(),
+                                            id: ctx.from!.id.toString(),
                                         },
                                         create: {
-                                            id: ctx.from.id.toString(),
+                                            id: ctx.from!.id.toString(),
                                         }
                                     }
                                 }
@@ -242,18 +241,18 @@ novel.command('nsave', async ctx => {
     }
 })
 
-novel.action(/novelInfo_\d+_\d+(_\w+)?/i, async ctx => {
+novel.callbackQuery(/novelInfo_\d+_\d+(_\w+)?/i, async ctx => {
     if ('data' in ctx.callbackQuery) {
         const [novelId, userId, releasing] = ctx.callbackQuery.data.replace(/novelInfo_/i, '').split('_')
 
         if (novelId && userId) {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
-                await ctx.answerCbQuery('This is not your list').catch(e => logger.error(e))
+                await ctx.answerCallbackQuery('This is not your list').catch(e => logger.error(e))
                 return
             }
 
-            await ctx.answerCbQuery().catch(e => logger.error(e))
+            await ctx.answerCallbackQuery().catch(e => logger.error(e))
 
             const novel = await prisma.novel.findUnique({
                 where: {
@@ -266,45 +265,45 @@ novel.action(/novelInfo_\d+_\d+(_\w+)?/i, async ctx => {
 
                 if (novel.part)
                     buttons.push([
-                        Markup.button.callback('Part', `partAlert`),
-                        Markup.button.callback('➖', `partMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
-                        Markup.button.callback('➕', `partPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
+                        btn('Part', `partAlert`),
+                        btn('➖', `partMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
+                        btn('➕', `partPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
                     ])
 
                 if (novel.volume)
                     buttons.push([
-                        Markup.button.callback('Volume', `volumeAlert`),
-                        Markup.button.callback('➖', `volMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
-                        Markup.button.callback('➕', `volPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
+                        btn('Volume', `volumeAlert`),
+                        btn('➖', `volMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
+                        btn('➕', `volPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
                     ])
 
                 if (novel.chapter)
                     buttons.push([
-                        Markup.button.callback('Chapter', `chapterAlert`),
-                        Markup.button.callback('➖', `chMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
-                        Markup.button.callback('➕', `chPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
+                        btn('Chapter', `chapterAlert`),
+                        btn('➖', `chMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
+                        btn('➕', `chPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
                     ])
 
                 buttons.push([
-                    Markup.button.callback(`RELEASING: ${novel && novel.releasing ? '✅' : '❌'}`, `toggleReleasing_${novelId}_${userId}_${novel && novel.releasing ? 'off' : 'on'}${releasing ? '_rel' : ''}`)
+                    btn(`RELEASING: ${novel && novel.releasing ? '✅' : '❌'}`, `toggleReleasing_${novelId}_${userId}_${novel && novel.releasing ? 'off' : 'on'}${releasing ? '_rel' : ''}`)
                 ])
                 buttons.push([
-                    Markup.button.callback('Fetch details', `ndf_${novelId}_${userId}`)
+                    btn('Fetch details', `ndf_${novelId}_${userId}`)
                 ])
                 buttons.push([
-                    Markup.button.callback(`🗑 DELETE 🗑`, `deleteNovel_${novelId}_${userId}`, !!ctx.callbackQuery.inline_message_id)
+                    btn(`🗑 DELETE 🗑`, `deleteNovel_${novelId}_${userId}`)
                 ])
                 if (releasing) {
                     buttons.push([
-                        Markup.button.callback('🔙 Full list', `releasing_1_${userId}`)
+                        btn('🔙 Full list', `releasing_1_${userId}`)
                     ])
                 } else {
                     buttons.push([
-                        Markup.button.callback('🔙 Full list', `mynovel_1_${userId}`)
+                        btn('🔙 Full list', `mynovel_1_${userId}`)
                     ])
                 }
 
-                const keyboard = Markup.inlineKeyboard(buttons)
+                const keyboard = InlineKeyboard.from(buttons)
 
                 let text = ''
                 if (novel) {
@@ -326,13 +325,13 @@ novel.action(/novelInfo_\d+_\d+(_\w+)?/i, async ctx => {
                     text += '<b>Novel not found for this id</b>'
                 }
 
-                return ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+                return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard })
             }
         }
     }
 })
 
-novel.action(/(part|vol|ch)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
+novel.callbackQuery(/(part|vol|ch)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
     if ('data' in ctx.callbackQuery) {
         const [novelId, userId, releasing] = ctx.callbackQuery.data.replace(/(part|vol|ch)(Minus|Plus)_/i, '').split('_')
         const isMinus = /(part|vol|ch)Minus_/i.test(ctx.callbackQuery.data ?? '')
@@ -342,11 +341,11 @@ novel.action(/(part|vol|ch)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
         if (novelId && userId) {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
-                await ctx.answerCbQuery('This is not your anime').catch(e => logger.error(e))
+                await ctx.answerCallbackQuery('This is not your anime').catch(e => logger.error(e))
                 return
             }
 
-            await ctx.answerCbQuery().catch(e => logger.error(e))
+            await ctx.answerCallbackQuery().catch(e => logger.error(e))
 
             const increment = !isMinus ? 1 : -1
 
@@ -366,45 +365,45 @@ novel.action(/(part|vol|ch)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
 
                 if (novel.part)
                     buttons.push([
-                        Markup.button.callback('Part', `partAlert`),
-                        Markup.button.callback('➖', `partMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
-                        Markup.button.callback('➕', `partPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
+                        btn('Part', `partAlert`),
+                        btn('➖', `partMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
+                        btn('➕', `partPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
                     ])
 
                 if (novel.volume)
                     buttons.push([
-                        Markup.button.callback('Volume', `volumeAlert`),
-                        Markup.button.callback('➖', `volMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
-                        Markup.button.callback('➕', `volPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
+                        btn('Volume', `volumeAlert`),
+                        btn('➖', `volMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
+                        btn('➕', `volPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
                     ])
 
                 if (novel.chapter)
                     buttons.push([
-                        Markup.button.callback('Chapter', `chapterAlert`),
-                        Markup.button.callback('➖', `chMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
-                        Markup.button.callback('➕', `chPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
+                        btn('Chapter', `chapterAlert`),
+                        btn('➖', `chMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
+                        btn('➕', `chPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
                     ])
 
                 buttons.push([
-                    Markup.button.callback(`RELEASING: ${novel && novel.releasing ? '✅' : '❌'}`, `toggleReleasing_${novelId}_${userId}_${novel && novel.releasing ? 'off' : 'on'}${releasing ? '_rel' : ''}`)
+                    btn(`RELEASING: ${novel && novel.releasing ? '✅' : '❌'}`, `toggleReleasing_${novelId}_${userId}_${novel && novel.releasing ? 'off' : 'on'}${releasing ? '_rel' : ''}`)
                 ])
                 buttons.push([
-                    Markup.button.callback('Fetch details', `ndf_${novelId}_${userId}`)
+                    btn('Fetch details', `ndf_${novelId}_${userId}`)
                 ])
                 buttons.push([
-                    Markup.button.callback(`🗑 DELETE 🗑`, `deleteNovel_${novelId}_${userId}`, !!ctx.callbackQuery.inline_message_id)
+                    btn(`🗑 DELETE 🗑`, `deleteNovel_${novelId}_${userId}`)
                 ])
                 if (releasing) {
                     buttons.push([
-                        Markup.button.callback('🔙 Full list', `releasing_1_${userId}`)
+                        btn('🔙 Full list', `releasing_1_${userId}`)
                     ])
                 } else {
                     buttons.push([
-                        Markup.button.callback('🔙 Full list', `mynovel_1_${userId}`)
+                        btn('🔙 Full list', `mynovel_1_${userId}`)
                     ])
                 }
 
-                const keyboard = Markup.inlineKeyboard(buttons)
+                const keyboard = InlineKeyboard.from(buttons)
 
                 let text = ''
                 if (novel) {
@@ -426,33 +425,33 @@ novel.action(/(part|vol|ch)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
                     text += '<b>Novel not found for this id</b>'
                 }
 
-                return ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+                return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard })
             }).catch(logger.error)
         }
     }
 
 })
 
-novel.action(/(chapter|volume|part)Alert/i, ctx => {
+novel.callbackQuery(/(chapter|volume|part)Alert/i, ctx => {
     if ('data' in ctx.callbackQuery) {
         const type = /chapter/i.test(ctx.callbackQuery.data) ? 'chapter' : /volume/i.test(ctx.callbackQuery.data) ? 'volume' : 'part'
-        return ctx
-            .answerCbQuery(`Use the ➖ and ➕ buttons to modify the ${type}`, { show_alert: true })
+        return ctx.api
+            .answerCallbackQuery(ctx.callbackQuery.id, { text: `Use the ➖ and ➕ buttons to modify the ${type}`, show_alert: true })
             .catch(e => logger.error(e))
     }
 })
 
-novel.action(/toggleReleasing_\d+_\d+_(on|off)(_\w+)?/i, async ctx => {
+novel.callbackQuery(/toggleReleasing_\d+_\d+_(on|off)(_\w+)?/i, async ctx => {
     if ('data' in ctx.callbackQuery) {
         const [novelId, userId, value, releasing] = ctx.callbackQuery.data.replace(/toggleReleasing_/i, '').split('_')
         if (novelId && userId) {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
-                await ctx.answerCbQuery('This is not your novel').catch(e => logger.error(e))
+                await ctx.answerCallbackQuery('This is not your novel').catch(e => logger.error(e))
                 return
             }
 
-            await ctx.answerCbQuery().catch(e => logger.error(e))
+            await ctx.answerCallbackQuery().catch(e => logger.error(e))
 
             await prisma.novel.update({
                 where: {
@@ -466,45 +465,45 @@ novel.action(/toggleReleasing_\d+_\d+_(on|off)(_\w+)?/i, async ctx => {
 
                 if (novel.part)
                     buttons.push([
-                        Markup.button.callback('Part', `partAlert`),
-                        Markup.button.callback('➖', `partMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
-                        Markup.button.callback('➕', `partPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
+                        btn('Part', `partAlert`),
+                        btn('➖', `partMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
+                        btn('➕', `partPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
                     ])
 
                 if (novel.volume)
                     buttons.push([
-                        Markup.button.callback('Volume', `volumeAlert`),
-                        Markup.button.callback('➖', `volMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
-                        Markup.button.callback('➕', `volPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
+                        btn('Volume', `volumeAlert`),
+                        btn('➖', `volMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
+                        btn('➕', `volPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
                     ])
 
                 if (novel.chapter)
                     buttons.push([
-                        Markup.button.callback('Chapter', `chapterAlert`),
-                        Markup.button.callback('➖', `chMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
-                        Markup.button.callback('➕', `chPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
+                        btn('Chapter', `chapterAlert`),
+                        btn('➖', `chMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
+                        btn('➕', `chPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
                     ])
 
                 buttons.push([
-                    Markup.button.callback(`RELEASING: ${novel && novel.releasing ? '✅' : '❌'}`, `toggleReleasing_${novelId}_${userId}_${novel && novel.releasing ? 'off' : 'on'}${releasing ? '_rel' : ''}`)
+                    btn(`RELEASING: ${novel && novel.releasing ? '✅' : '❌'}`, `toggleReleasing_${novelId}_${userId}_${novel && novel.releasing ? 'off' : 'on'}${releasing ? '_rel' : ''}`)
                 ])
                 buttons.push([
-                    Markup.button.callback('Fetch details', `ndf_${novelId}_${userId}`)
+                    btn('Fetch details', `ndf_${novelId}_${userId}`)
                 ])
                 buttons.push([
-                    Markup.button.callback(`🗑 DELETE 🗑`, `deleteNovel_${novelId}_${userId}`, !!ctx.callbackQuery.inline_message_id)
+                    btn(`🗑 DELETE 🗑`, `deleteNovel_${novelId}_${userId}`)
                 ])
                 if (releasing) {
                     buttons.push([
-                        Markup.button.callback('🔙 Full list', `releasing_1_${userId}`)
+                        btn('🔙 Full list', `releasing_1_${userId}`)
                     ])
                 } else {
                     buttons.push([
-                        Markup.button.callback('🔙 Full list', `mynovel_1_${userId}`)
+                        btn('🔙 Full list', `mynovel_1_${userId}`)
                     ])
                 }
 
-                const keyboard = Markup.inlineKeyboard(buttons)
+                const keyboard = InlineKeyboard.from(buttons)
 
                 let text = ''
                 if (novel) {
@@ -526,19 +525,19 @@ novel.action(/toggleReleasing_\d+_\d+_(on|off)(_\w+)?/i, async ctx => {
                     text += '<b>Novel not found for this id</b>'
                 }
 
-                return ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+                return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard })
             }).catch(logger.error)
         }
     }
 })
 
-novel.action(/ntxt_\d+/, async ctx => {
-    await ctx.answerCbQuery().catch(e => logger.error(e))
+novel.callbackQuery(/ntxt_\d+/, async ctx => {
+    await ctx.answerCallbackQuery().catch(e => logger.error(e))
     const userId = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data?.replace(/ntxt_/i, '') : '123'
     const fileName = `${userId}_novels.txt`
 
     if (userId !== ctx.callbackQuery.from.id.toString()) {
-        await ctx.answerCbQuery('This is not your list').catch(e => logger.error(e))
+        await ctx.answerCallbackQuery('This is not your list').catch(e => logger.error(e))
     }
     else {
         const novels = await prisma.novel.findMany({
@@ -558,21 +557,23 @@ novel.action(/ntxt_\d+/, async ctx => {
 
         await fs.writeFile(fileName, novelList)
 
-        await ctx.replyWithDocument({ source: fileName, filename: `novels_${Date.now()}.txt` }, { caption: 'Your list of novels' })
+        await ctx.replyWithDocument(new InputFile(fileName, `novels_${Date.now()}.txt`), { caption: 'Your list of novels' })
 
         await fs.unlink(fileName).catch(logger.error)
     }
 })
 
-novel.action(/mynovel_\d+_\d+/i, async ctx => {
+novel.callbackQuery(/mynovel_\d+_\d+/i, async ctx => {
     if ('data' in ctx.callbackQuery) {
         const [page, userId] = ctx.callbackQuery.data.replace(/mynovel_/i, '').split('_')
         if (page && userId) {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
-                await ctx.answerCbQuery('This is not your novel').catch(e => logger.error(e))
+                await ctx.answerCallbackQuery('This is not your novel').catch(e => logger.error(e))
                 return
             }
+
+            await ctx.answerCallbackQuery().catch(e => logger.error(e))
 
             const skip = (parseInt(page) - 1) * 10
 
@@ -595,33 +596,35 @@ novel.action(/mynovel_\d+_\d+/i, async ctx => {
 
             const text = `<b>Novels stored for you:</b>\n\n${novelList}`
 
-            const buttons = novels.slice(0, 10).map(novel => [Markup.button.callback(`"${novel.name}"`, `novelInfo_${novel.id}_${userId}`)])
+            const buttons = novels.slice(0, 10).map(novel => [btn(`"${novel.name}"`, `novelInfo_${novel.id}_${userId}`)])
+
+            const navRow = []
+            if (parseInt(page) > 1) navRow.push(btn('⏮', `mynovel_${parseInt(page) - 1}_${userId}`))
+            if (novels.length > 10) navRow.push(btn('⏭', `mynovel_${parseInt(page) + 1}_${userId}`))
+            if (navRow.length > 0) buttons.push(navRow)
 
             buttons.push([
-                Markup.button.callback('⏮', `mynovel_${parseInt(page) - 1}_${userId}`, parseInt(page) < 2),
-                Markup.button.callback('⏭', `mynovel_${parseInt(page) + 1}_${userId}`, novels.length < 11)
+                btn('💾 Export .txt 💾', `ntxt_${userId}`),
             ])
 
-            buttons.push([
-                Markup.button.callback('💾 Export .txt 💾', `ntxt_${userId}`, !!ctx.callbackQuery.inline_message_id),
-            ])
+            const keyboard = InlineKeyboard.from(buttons)
 
-            const keyboard = Markup.inlineKeyboard(buttons)
-
-            return ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+            return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard })
         }
     }
 })
 
-novel.action(/releasing_\d+_\d+/i, async ctx => {
+novel.callbackQuery(/releasing_\d+_\d+/i, async ctx => {
     if ('data' in ctx.callbackQuery) {
         const [page, userId] = ctx.callbackQuery.data.replace(/releasing_/i, '').split('_')
         if (page && userId) {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
-                await ctx.answerCbQuery('This is not your novel').catch(e => logger.error(e))
+                await ctx.answerCallbackQuery('This is not your novel').catch(e => logger.error(e))
                 return
             }
+
+            await ctx.answerCallbackQuery().catch(e => logger.error(e))
 
             const skip = (parseInt(page) - 1) * 10
 
@@ -645,36 +648,36 @@ novel.action(/releasing_\d+_\d+/i, async ctx => {
 
             const text = `<b>Novels marked as 'RELEASING' stored for you:</b>\n\n${novelList}`
 
-            const buttons = novels.slice(0, 10).map(novel => [Markup.button.callback(`"${novel.name}"`, `novelInfo_${novel.id}_${userId}_rel`)])
+            const buttons = novels.slice(0, 10).map(novel => [btn(`"${novel.name}"`, `novelInfo_${novel.id}_${userId}_rel`)])
 
-            buttons.push([
-                Markup.button.callback('⏮', `releasing_${parseInt(page) - 1}_${userId}`, parseInt(page) < 2),
-                Markup.button.callback('⏭', `releasing_${parseInt(page) + 1}_${userId}`, novels.length < 11)
-            ])
+            const navRow = []
+            if (parseInt(page) > 1) navRow.push(btn('⏮', `releasing_${parseInt(page) - 1}_${userId}`))
+            if (novels.length > 10) navRow.push(btn('⏭', `releasing_${parseInt(page) + 1}_${userId}`))
+            if (navRow.length > 0) buttons.push(navRow)
 
-            const keyboard = Markup.inlineKeyboard(buttons)
+            const keyboard = InlineKeyboard.from(buttons)
 
-            return ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+            return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard })
         }
     }
 })
 
-novel.action(/ndf_\d+_\d+/i, async ctx => {
+novel.callbackQuery(/ndf_\d+_\d+/i, async ctx => {
     if (!('data' in ctx.callbackQuery)) return
 
     const [novelId, userId] = ctx.callbackQuery.data.replace(/ndf_/i, '').split('_')
     if (ctx.callbackQuery.from.id.toString() !== userId) {
-        await ctx.answerCbQuery('This is not your novel').catch(e => logger.error(e))
+        await ctx.answerCallbackQuery('This is not your novel').catch(e => logger.error(e))
         return
     }
+
+    await ctx.answerCallbackQuery('Fetching details...').catch(logger.error)
 
     const savedNovel = await prisma.novel.findUnique({ where: { id: parseInt(novelId) } })
     if (!savedNovel) {
-        await ctx.answerCbQuery('Novel not found').catch(logger.error)
+        await ctx.reply('Novel not found').catch(logger.error)
         return
     }
-
-    await ctx.answerCbQuery('Fetching details...').catch(logger.error)
 
     if (savedNovel.anilistId) {
         const details = await getBestDetails('reading', savedNovel)
@@ -683,10 +686,10 @@ novel.action(/ndf_\d+_\d+/i, async ctx => {
             return
         }
 
-        return ctx.replyWithHTML(detailsPreviewText(details), Markup.inlineKeyboard([
-            [Markup.button.callback('Save details', `nds_${novelId}_${userId}_${details.provider}_${encodeURIComponent(details.id)}`)],
-            [Markup.button.callback('Cancel', `novelInfo_${novelId}_${userId}`)],
-        ])).catch(logger.error)
+        return ctx.reply(detailsPreviewText(details), { parse_mode: 'HTML', reply_markup: InlineKeyboard.from([
+            [btn('Save details', `nds_${novelId}_${userId}_${details.provider}_${encodeURIComponent(details.id)}`)],
+            [btn('Cancel', `novelInfo_${novelId}_${userId}`)],
+        ]) }).catch(logger.error)
     }
 
     const results = await searchDetails('reading', savedNovel.name, 5)
@@ -696,14 +699,14 @@ novel.action(/ndf_\d+_\d+/i, async ctx => {
     }
 
     const buttons = results.slice(0, 8).map(details => [
-        Markup.button.callback(detailButtonLabel(details), `ndp_${novelId}_${userId}_${details.provider}_${encodeURIComponent(details.id)}`),
+        btn(detailButtonLabel(details), `ndp_${novelId}_${userId}_${details.provider}_${encodeURIComponent(details.id)}`),
     ])
-    buttons.push([Markup.button.callback('Cancel', `novelInfo_${novelId}_${userId}`)])
+    buttons.push([btn('Cancel', `novelInfo_${novelId}_${userId}`)])
 
-    return ctx.replyWithHTML(`Select details for <b>${escapeHtml(savedNovel.name)}</b>:`, Markup.inlineKeyboard(buttons)).catch(logger.error)
+    return ctx.reply(`Select details for <b>${escapeHtml(savedNovel.name)}</b>:`, { parse_mode: 'HTML', reply_markup: InlineKeyboard.from(buttons) }).catch(logger.error)
 })
 
-novel.action(/ndp_\d+_\d+_[^_]+_.+/i, async ctx => {
+novel.callbackQuery(/ndp_\d+_\d+_[^_]+_.+/i, async ctx => {
     if (!('data' in ctx.callbackQuery)) return
 
     const parsed = parseDetailAction(ctx.callbackQuery.data, 'ndp')
@@ -711,11 +714,11 @@ novel.action(/ndp_\d+_\d+_[^_]+_.+/i, async ctx => {
 
     const { recordId, userId, provider, providerId } = parsed
     if (ctx.callbackQuery.from.id.toString() !== userId) {
-        await ctx.answerCbQuery('This is not your novel').catch(e => logger.error(e))
+        await ctx.answerCallbackQuery('This is not your novel').catch(e => logger.error(e))
         return
     }
 
-    await ctx.answerCbQuery().catch(logger.error)
+    await ctx.answerCallbackQuery().catch(logger.error)
 
     const details = await getDetailsByProvider('reading', provider, providerId)
     if (!details) {
@@ -723,13 +726,13 @@ novel.action(/ndp_\d+_\d+_[^_]+_.+/i, async ctx => {
         return
     }
 
-    return ctx.replyWithHTML(detailsPreviewText(details), Markup.inlineKeyboard([
-        [Markup.button.callback('Save details', `nds_${recordId}_${userId}_${details.provider}_${encodeURIComponent(details.id)}`)],
-        [Markup.button.callback('Cancel', `novelInfo_${recordId}_${userId}`)],
-    ])).catch(logger.error)
+    return ctx.reply(detailsPreviewText(details), { parse_mode: 'HTML', reply_markup: InlineKeyboard.from([
+        [btn('Save details', `nds_${recordId}_${userId}_${details.provider}_${encodeURIComponent(details.id)}`)],
+        [btn('Cancel', `novelInfo_${recordId}_${userId}`)],
+    ]) }).catch(logger.error)
 })
 
-novel.action(/nds_\d+_\d+_[^_]+_.+/i, async ctx => {
+novel.callbackQuery(/nds_\d+_\d+_[^_]+_.+/i, async ctx => {
     if (!('data' in ctx.callbackQuery)) return
 
     const parsed = parseDetailAction(ctx.callbackQuery.data, 'nds')
@@ -737,13 +740,13 @@ novel.action(/nds_\d+_\d+_[^_]+_.+/i, async ctx => {
 
     const { recordId, userId, provider, providerId } = parsed
     if (ctx.callbackQuery.from.id.toString() !== userId) {
-        await ctx.answerCbQuery('This is not your novel').catch(e => logger.error(e))
+        await ctx.answerCallbackQuery('This is not your novel').catch(e => logger.error(e))
         return
     }
 
     const details = await getDetailsByProvider('reading', provider, providerId)
     if (!details) {
-        await ctx.answerCbQuery('Could not load details').catch(logger.error)
+        await ctx.answerCallbackQuery('Could not load details').catch(logger.error)
         return
     }
 
@@ -752,17 +755,17 @@ novel.action(/nds_\d+_\d+_[^_]+_.+/i, async ctx => {
         data: toReadingUpdate(details),
     })
 
-    await ctx.answerCbQuery('Details saved!').catch(logger.error)
-    return ctx.replyWithHTML(`Saved details from <b>${escapeHtml(details.providerLabel)}</b> for <b>${escapeHtml(details.title)}</b>.`).catch(logger.error)
+    await ctx.answerCallbackQuery('Details saved!').catch(logger.error)
+    return ctx.reply(`Saved details from <b>${escapeHtml(details.providerLabel)}</b> for <b>${escapeHtml(details.title)}</b>.`, { parse_mode: 'HTML' }).catch(logger.error)
 })
 
-novel.action(/deleteNovel_/, async ctx => {
+novel.callbackQuery(/deleteNovel_/, async ctx => {
     try {
         if ('data' in ctx.callbackQuery && !ctx.callbackQuery.inline_message_id) {
             const [novelId, userId] = ctx.callbackQuery.data.replace(/deleteNovel_/i, '').split('_')
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
-                await ctx.answerCbQuery('This is not your menu').catch(e => logger.error(e))
+                await ctx.answerCallbackQuery('This is not your menu').catch(e => logger.error(e))
                 return
             }
             await prisma.novel.delete({
@@ -770,9 +773,9 @@ novel.action(/deleteNovel_/, async ctx => {
                     id: parseInt(novelId)
                 }
             }).then(async () => {
-                await ctx.answerCbQuery('Novel deleted!').catch(logger.error)
-                return ctx.replyWithHTML('Your novel record was deleted.\nIf you made a mistake, just send the <code>monospaced text</code> in the previous message.')
-            }).catch(() => ctx.answerCbQuery().catch(logger.error))
+                await ctx.answerCallbackQuery('Novel deleted!').catch(logger.error)
+                return ctx.reply('Your novel record was deleted.\nIf you made a mistake, just send the <code>monospaced text</code> in the previous message.', { parse_mode: 'HTML' })
+            }).catch(() => ctx.answerCallbackQuery().catch(logger.error))
         }
     } catch (error) {
         logger.error(error)
@@ -804,15 +807,17 @@ function parseDetailAction(data: string, prefix: string) {
 }
 
 // nfm = novel from menu
-novel.action(/nfm_\d+_\d+/i, async ctx => {
+novel.callbackQuery(/nfm_\d+_\d+/i, async ctx => {
     if ('data' in ctx.callbackQuery) {
         const [user, animeId] = ctx.callbackQuery.data.replace(/nfm_/i, '').split('_')
         try {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== user) {
-                await ctx.answerCbQuery('This is not your menu').catch(e => logger.error(e))
+                await ctx.answerCallbackQuery('This is not your menu').catch(e => logger.error(e))
                 return
             }
+
+            await ctx.answerCallbackQuery().catch(logger.error)
 
             const results = await getNovel(parseInt(animeId))
             if (!results) return logger.error('Error with novel update/add')
@@ -848,7 +853,7 @@ novel.action(/nfm_\d+_\d+/i, async ctx => {
                         anilistId: novel.id,
                     }
                 })
-                .then(() => ctx.answerCbQuery('Anime added/updated!').catch(logger.error))
+                .then(() => logger.info('Anime added/updated!'))
                 .catch(logger.error)
 
         } catch (error) {

@@ -22,6 +22,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@grammyjs/auto-retry": "^2.0.2",
     "@libsql/client": "^0.15.0",
     "@prisma/adapter-libsql": "^7.0.1",
     "@prisma/client": "^7.0.1",
@@ -29,10 +30,10 @@
     "dayjs": "^1.11.6",
     "dotenv": "^10.0.0",
     "elysia": "^1.2.0",
+    "grammy": "^1.42.0",
     "node-schedule": "^2.1.0",
     "prisma": "^7.0.1",
-    "signale": "^1.4.0",
-    "telegraf": "^4.8.1"
+    "signale": "^1.4.0"
   },
   "devDependencies": {
     "@types/node": "^22.19.1",

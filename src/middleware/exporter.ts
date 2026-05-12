@@ -1,4 +1,4 @@
-import { Composer } from "telegraf"
+import { Composer, InputFile } from "grammy"
 import { prisma } from "../db/prisma.js"
 import { logger } from "../logger/index.js"
 import * as fs from 'fs/promises'
@@ -67,7 +67,7 @@ exporter.command('export', async ctx => {
 • Notification groups: ${exportData.counts.notificationGroups}`
 
         await ctx.replyWithDocument(
-            { source: fileName, filename: fileName },
+            new InputFile(fileName, fileName),
             { caption: `✅ Export ready.\n\n${summary}` }
         )
 
