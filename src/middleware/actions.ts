@@ -1,4 +1,4 @@
-import { Composer, Markup } from "telegraf"
+import { Composer, InlineKeyboard, InputFile } from "grammy"
 import { prisma } from "../db/prisma.js"
 import { logger } from "../logger/index.js"
 
@@ -10,18 +10,20 @@ import { getBestDetails, getDetailsByProvider, searchDetails, summarizeDetails, 
 
 const actions = new Composer()
 
-actions.action(/animeInfo_\d+_\d+(_\w+)?/i, async ctx => {
+const btn = (text: string, callback_data: string) => ({ text, callback_data })
+
+actions.callbackQuery(/animeInfo_\d+_\d+(_\w+)?/i, async (ctx) => {
     if ('data' in ctx.callbackQuery) {
         const [animeId, userId, onlyAiring] = ctx.callbackQuery.data.replace(/animeInfo_/i, '').split('_')
 
         if (animeId && userId) {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
-                await ctx.answerCbQuery('This is not your list').catch(e => logger.error(e))
+                await ctx.answerCallbackQuery('This is not your list').catch(e => logger.error(e))
                 return
             }
 
-            await ctx.answerCbQuery().catch(e => logger.error(e))
+            await ctx.answerCallbackQuery().catch(e => logger.error(e))
 
             const anime = await prisma.anime.findUnique({
                 where: {
@@ -30,48 +32,48 @@ actions.action(/animeInfo_\d+_\d+(_\w+)?/i, async ctx => {
             })
 
             if (anime) {
-                const buttons = []
+                const buttons: { text: string; callback_data: string }[][] = []
 
                 buttons.push([
-                    Markup.button.callback('Season', `seasonAlert`),
-                    Markup.button.callback('➖', `seasonMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`),
-                    Markup.button.callback('➕', `seasonPlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`)
+                    btn('Season', `seasonAlert`),
+                    btn('➖', `seasonMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`),
+                    btn('➕', `seasonPlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`)
                 ])
                 buttons.push([
-                    Markup.button.callback('Episode', `episodeAlert`),
-                    Markup.button.callback('➖', `episodeMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`),
-                    Markup.button.callback('➕', `episodePlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`)
+                    btn('Episode', `episodeAlert`),
+                    btn('➖', `episodeMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`),
+                    btn('➕', `episodePlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`)
                 ])
                 buttons.push([
-                    Markup.button.callback(`On Air: ${anime && anime.onAir ? '✅' : '❌'}`, `toggleOnAir_${animeId}_${userId}_${anime && anime.onAir ? 'off' : 'on'}${onlyAiring ? '_airing' : ''}`)
+                    btn(`On Air: ${anime && anime.onAir ? '✅' : '❌'}`, `toggleOnAir_${animeId}_${userId}_${anime && anime.onAir ? 'off' : 'on'}${onlyAiring ? '_airing' : ''}`)
                 ])
                 buttons.push([
-                    Markup.button.callback('Fetch details', `adf_${animeId}_${userId}`)
+                    btn('Fetch details', `adf_${animeId}_${userId}`)
                 ])
                 buttons.push([
-                    Markup.button.callback(`🗑 DELETE 🗑`, `deleteAnime_${animeId}_${userId}`, !!ctx.callbackQuery.inline_message_id)
+                    btn(`🗑 DELETE 🗑`, `deleteAnime_${animeId}_${userId}`)
                 ])
                 if (onlyAiring) {
                     buttons.push([
-                        Markup.button.callback('🔙 Full list', `airing_1_${userId}`)
+                        btn('🔙 Full list', `airing_1_${userId}`)
                     ])
                 } else {
                     buttons.push([
-                        Markup.button.callback('🔙 Full list', `myanime_1_${userId}`)
+                        btn('🔙 Full list', `myanime_1_${userId}`)
                     ])
                 }
 
-                const keyboard = Markup.inlineKeyboard(buttons)
+                const keyboard = InlineKeyboard.from(buttons)
 
                 const text = anime ? `<b>Name:</b> ${escapeHtml(anime.name)}\n<b>Season:</b> ${anime.season}\n<b>Episode:</b> ${anime.episode}\n\n<b>Note:</b>\n${anime.note && anime.note.length > 0 ? escapeHtml(anime.note) : '-'}\n\n<i>To edit, use the buttons or modify the following code:</i>\n<pre>/save ${anime.season} ${anime.episode} ${escapeHtml(anime.name)}\n${escapeHtml(anime.note || '')}</pre>` : '<b>Anime not found for this id</b>'
 
-                return ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+                return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard })
             }
         }
     }
 })
 
-actions.action(/(season|episode)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
+actions.callbackQuery(/(season|episode)(Minus|Plus)_\d+_\d+(_\w+)?/i, async (ctx) => {
     if ('data' in ctx.callbackQuery) {
         const [animeId, userId, onlyAiring] = ctx.callbackQuery.data.replace(/(season|episode)(Minus|Plus)_/i, '').split('_')
         const isSeason = /season(Minus|Plus)_/i.test(ctx.callbackQuery.data ?? '')
@@ -79,11 +81,11 @@ actions.action(/(season|episode)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
         if (animeId && userId) {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
-                await ctx.answerCbQuery('This is not your anime').catch(e => logger.error(e))
+                await ctx.answerCallbackQuery('This is not your anime').catch(e => logger.error(e))
                 return
             }
 
-            await ctx.answerCbQuery().catch(e => logger.error(e))
+            await ctx.answerCallbackQuery().catch(e => logger.error(e))
 
             const seasonIncrement = !isSeason ? 0 : !isMinus ? 1 : -1
             const episodeIncrement = isSeason ? 0 : !isMinus ? 1 : -1
@@ -100,66 +102,66 @@ actions.action(/(season|episode)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
                     }
                 }
             }).then(async (anime) => {
-                const buttons = []
+                const buttons: { text: string; callback_data: string }[][] = []
 
                 buttons.push([
-                    Markup.button.callback('Season', `seasonAlert`),
-                    Markup.button.callback('➖', `seasonMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`),
-                    Markup.button.callback('➕', `seasonPlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`)
+                    btn('Season', `seasonAlert`),
+                    btn('➖', `seasonMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`),
+                    btn('➕', `seasonPlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`)
                 ])
                 buttons.push([
-                    Markup.button.callback('Episode', `episodeAlert`),
-                    Markup.button.callback('➖', `episodeMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`),
-                    Markup.button.callback('➕', `episodePlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`)
+                    btn('Episode', `episodeAlert`),
+                    btn('➖', `episodeMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`),
+                    btn('➕', `episodePlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`)
                 ])
                 buttons.push([
-                    Markup.button.callback(`On Air: ${anime.onAir ? '✅' : '❌'}`, `toggleOnAir_${animeId}_${userId}_${anime.onAir ? 'off' : 'on'}${onlyAiring ? '_airing' : ''}`)
+                    btn(`On Air: ${anime.onAir ? '✅' : '❌'}`, `toggleOnAir_${animeId}_${userId}_${anime.onAir ? 'off' : 'on'}${onlyAiring ? '_airing' : ''}`)
                 ])
                 buttons.push([
-                    Markup.button.callback('Fetch details', `adf_${animeId}_${userId}`)
+                    btn('Fetch details', `adf_${animeId}_${userId}`)
                 ])
                 buttons.push([
-                    Markup.button.callback(`🗑 DELETE 🗑`, `deleteAnime_${animeId}_${userId}`, !!ctx.callbackQuery.inline_message_id)
+                    btn(`🗑 DELETE 🗑`, `deleteAnime_${animeId}_${userId}`)
                 ])
                 if (onlyAiring) {
                     buttons.push([
-                        Markup.button.callback('🔙 Full list', `airing_1_${userId}`)
+                        btn('🔙 Full list', `airing_1_${userId}`)
                     ])
                 } else {
                     buttons.push([
-                        Markup.button.callback('🔙 Full list', `myanime_1_${userId}`)
+                        btn('🔙 Full list', `myanime_1_${userId}`)
                     ])
                 }
 
-                const keyboard = Markup.inlineKeyboard(buttons)
+                const keyboard = InlineKeyboard.from(buttons)
 
                 const text = anime ? `<b>Name:</b> ${escapeHtml(anime.name)}\n<b>Season:</b> ${anime.season}\n<b>Episode:</b> ${anime.episode}\n\n<b>Note:</b>\n${anime.note && anime.note.length > 0 ? escapeHtml(anime.note) : '-'}\n\n<i>To edit, use the buttons or modify the following code:</i>\n<pre>/save ${anime.season} ${anime.episode} ${escapeHtml(anime.name)}\n${escapeHtml(anime.note || '')}</pre>` : '<b>Anime not found for this id</b>'
 
-                await ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+                await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard })
             }).catch(logger.error)
         }
     }
 
 })
 
-actions.action(/(season|episode)Alert/i, ctx => {
+actions.callbackQuery(/(season|episode)Alert/i, (ctx) => {
     const type = /season/i.test('data' in ctx.callbackQuery ? ctx.callbackQuery.data : '') ? 'season' : 'episode'
-    ctx
-        .answerCbQuery(`Use the ➖ and ➕ buttons to modify ${type}`, { show_alert: true })
+    ctx.api
+        .answerCallbackQuery(ctx.callbackQuery.id, { text: `Use the ➖ and ➕ buttons to modify ${type}`, show_alert: true })
         .catch(e => logger.error(e))
 })
 
-actions.action(/toggleOnAir_\d+_\d+_(on|off)(_\w+)?/i, async ctx => {
+actions.callbackQuery(/toggleOnAir_\d+_\d+_(on|off)(_\w+)?/i, async (ctx) => {
     if ('data' in ctx.callbackQuery) {
         const [animeId, userId, value, onlyAiring] = ctx.callbackQuery.data.replace(/toggleOnAir_/i, '').split('_')
         if (animeId && userId) {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
-                await ctx.answerCbQuery('This is not your anime').catch(e => logger.error(e))
+                await ctx.answerCallbackQuery('This is not your anime').catch(e => logger.error(e))
                 return
             }
 
-            await ctx.answerCbQuery().catch(e => logger.error(e))
+            await ctx.answerCallbackQuery().catch(e => logger.error(e))
 
             await prisma.anime.update({
                 where: {
@@ -168,56 +170,56 @@ actions.action(/toggleOnAir_\d+_\d+_(on|off)(_\w+)?/i, async ctx => {
                 data: {
                     onAir: value === 'on'
                 }
-            }).then(async anime => {
-                const buttons = []
+            }).then(async (anime) => {
+                const buttons: { text: string; callback_data: string }[][] = []
 
                 buttons.push([
-                    Markup.button.callback('Season', `seasonAlert`),
-                    Markup.button.callback('➖', `seasonMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`),
-                    Markup.button.callback('➕', `seasonPlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`)
+                    btn('Season', `seasonAlert`),
+                    btn('➖', `seasonMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`),
+                    btn('➕', `seasonPlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`)
                 ])
                 buttons.push([
-                    Markup.button.callback('Episode', `episodeAlert`),
-                    Markup.button.callback('➖', `episodeMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`),
-                    Markup.button.callback('➕', `episodePlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`)
+                    btn('Episode', `episodeAlert`),
+                    btn('➖', `episodeMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`),
+                    btn('➕', `episodePlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`)
                 ])
                 buttons.push([
-                    Markup.button.callback(`On Air: ${anime.onAir ? '✅' : '❌'}`, `toggleOnAir_${animeId}_${userId}_${anime.onAir ? 'off' : 'on'}${onlyAiring ? '_airing' : ''}`)
+                    btn(`On Air: ${anime.onAir ? '✅' : '❌'}`, `toggleOnAir_${animeId}_${userId}_${anime.onAir ? 'off' : 'on'}${onlyAiring ? '_airing' : ''}`)
                 ])
                 buttons.push([
-                    Markup.button.callback('Fetch details', `adf_${animeId}_${userId}`)
+                    btn('Fetch details', `adf_${animeId}_${userId}`)
                 ])
                 buttons.push([
-                    Markup.button.callback(`🗑 DELETE 🗑`, `deleteAnime_${animeId}_${userId}`, !!ctx.callbackQuery.inline_message_id)
+                    btn(`🗑 DELETE 🗑`, `deleteAnime_${animeId}_${userId}`)
                 ])
                 if (onlyAiring) {
                     buttons.push([
-                        Markup.button.callback('🔙 Full list', `airing_1_${userId}`)
+                        btn('🔙 Full list', `airing_1_${userId}`)
                     ])
                 } else {
                     buttons.push([
-                        Markup.button.callback('🔙 Full list', `myanime_1_${userId}`)
+                        btn('🔙 Full list', `myanime_1_${userId}`)
                     ])
                 }
 
-                const keyboard = Markup.inlineKeyboard(buttons)
+                const keyboard = InlineKeyboard.from(buttons)
 
                 const text = anime ? `<b>Name:</b> ${escapeHtml(anime.name)}\n<b>Season:</b> ${anime.season}\n<b>Episode:</b> ${anime.episode}\n\n<b>Note:</b>\n${anime.note && anime.note.length > 0 ? escapeHtml(anime.note) : '-'}\n\n<i>To edit, use the buttons or modify the following code:</i>\n<pre>/save ${anime.season} ${anime.episode} ${escapeHtml(anime.name)}\n${escapeHtml(anime.note || '')}</pre>` : '<b>Anime not found for this id</b>'
 
-                await ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+                await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard })
             }).catch(logger.error)
         }
     }
 
 })
 
-actions.action(/txt_\d+/, async ctx => {
-    await ctx.answerCbQuery().catch(e => logger.error(e))
+actions.callbackQuery(/txt_\d+/, async (ctx) => {
+    await ctx.answerCallbackQuery().catch(e => logger.error(e))
     const userId = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data?.replace(/txt_/i, '') : '123'
     const fileName = `${userId}.txt`
 
     if (userId !== ctx.callbackQuery.from.id.toString()) {
-        await ctx.answerCbQuery('This is not your list').catch(e => logger.error(e))
+        await ctx.answerCallbackQuery('This is not your list').catch(e => logger.error(e))
     }
     else {
         const animes = await prisma.anime.findMany({
@@ -234,19 +236,19 @@ actions.action(/txt_\d+/, async ctx => {
 
         await fs.writeFile(fileName, animelist)
 
-        await ctx.replyWithDocument({ source: fileName, filename: `anime_${Date.now()}.txt` }, { caption: 'Your list of anime' })
+        await ctx.replyWithDocument(new InputFile(fileName, `anime_${Date.now()}.txt`), { caption: 'Your list of anime' })
 
         await fs.unlink(fileName).catch(logger.error)
     }
 })
 
-actions.action(/myanime_\d+_\d+/i, async ctx => {
+actions.callbackQuery(/myanime_\d+_\d+/i, async (ctx) => {
     if ('data' in ctx.callbackQuery) {
         const [page, userId] = ctx.callbackQuery.data.replace(/myanime_/i, '').split('_')
         if (page && userId) {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
-                await ctx.answerCbQuery('This is not your anime').catch(e => logger.error(e))
+                await ctx.answerCallbackQuery('This is not your anime').catch(e => logger.error(e))
                 return
             }
 
@@ -271,31 +273,26 @@ actions.action(/myanime_\d+_\d+/i, async ctx => {
 
             const text = `<b>Anime stored for you:</b>\n\n${animelist}`
 
-            const buttons = animes.slice(0, 10).map(anime => [Markup.button.callback(`"${anime.name}"`, `animeInfo_${anime.id}_${userId}`)])
+            const keyboard = new InlineKeyboard()
+            for (const anime of animes.slice(0, 10)) {
+                keyboard.text(`"${anime.name}"`, `animeInfo_${anime.id}_${userId}`).row()
+            }
+            keyboard.text('⏮', `myanime_${parseInt(page) - 1}_${userId}`)
+            keyboard.text('⏭', `myanime_${parseInt(page) + 1}_${userId}`).row()
+            keyboard.text('💾 Export .txt 💾', `txt_${userId}`)
 
-            buttons.push([
-                Markup.button.callback('⏮', `myanime_${parseInt(page) - 1}_${userId}`, parseInt(page) < 2),
-                Markup.button.callback('⏭', `myanime_${parseInt(page) + 1}_${userId}`, animes.length < 11)
-            ])
-
-            buttons.push([
-                Markup.button.callback('💾 Export .txt 💾', `txt_${userId}`, !!ctx.callbackQuery.inline_message_id),
-            ])
-
-            const keyboard = Markup.inlineKeyboard(buttons)
-
-            return ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+            return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard })
         }
     }
 })
 
-actions.action(/airing_\d+_\d+/i, async ctx => {
+actions.callbackQuery(/airing_\d+_\d+/i, async (ctx) => {
     if ('data' in ctx.callbackQuery) {
         const [page, userId] = ctx.callbackQuery.data.replace(/airing_/i, '').split('_')
         if (page && userId) {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
-                await ctx.answerCbQuery('This is not your anime').catch(e => logger.error(e))
+                await ctx.answerCallbackQuery('This is not your anime').catch(e => logger.error(e))
                 return
             }
 
@@ -321,21 +318,19 @@ actions.action(/airing_\d+_\d+/i, async ctx => {
 
             const text = `<b>Anime marked as 'On Air' stored for you:</b>\n\n${animelist}`
 
-            const buttons = animes.slice(0, 10).map(anime => [Markup.button.callback(`"${anime.name}"`, `animeInfo_${anime.id}_${userId}_airing`)])
+            const keyboard = new InlineKeyboard()
+            for (const anime of animes.slice(0, 10)) {
+                keyboard.text(`"${anime.name}"`, `animeInfo_${anime.id}_${userId}_airing`).row()
+            }
+            keyboard.text('⏮', `airing_${parseInt(page) - 1}_${userId}`)
+            keyboard.text('⏭', `airing_${parseInt(page) + 1}_${userId}`)
 
-            buttons.push([
-                Markup.button.callback('⏮', `airing_${parseInt(page) - 1}_${userId}`, parseInt(page) < 2),
-                Markup.button.callback('⏭', `airing_${parseInt(page) + 1}_${userId}`, animes.length < 11)
-            ])
-
-            const keyboard = Markup.inlineKeyboard(buttons)
-
-            return ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+            return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard })
         }
     }
 })
 
-actions.action(/Local_\d+_\d+_.+/i, async ctx => {
+actions.callbackQuery(/Local_\d+_\d+_.+/i, async (ctx) => {
     if ('data' in ctx.callbackQuery) {
         const data = ctx.callbackQuery.data.replace(/Local_/i, '')
         const firstUnderscore = data.indexOf('_')
@@ -346,7 +341,7 @@ actions.action(/Local_\d+_\d+_.+/i, async ctx => {
         if (page && userId && query) {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
-                await ctx.answerCbQuery('This is not your anime').catch(e => logger.error(e))
+                await ctx.answerCallbackQuery('This is not your anime').catch(e => logger.error(e))
                 return
             }
 
@@ -374,37 +369,32 @@ actions.action(/Local_\d+_\d+_.+/i, async ctx => {
 
             const text = `<b>Anime stored for you:</b>\n\n${animelist}`
 
-            const buttons = animes.map(anime => [Markup.button.callback(`"${anime.name}"`, `animeInfo_${anime.id}_${userId}`)])
+            const keyboard = new InlineKeyboard()
+            for (const anime of animes) {
+                keyboard.text(`"${anime.name}"`, `animeInfo_${anime.id}_${userId}`).row()
+            }
+            keyboard.text('⏮', `myanime_${parseInt(page) - 1}_${userId}`)
+            keyboard.text('⏭', `myanime_${parseInt(page) + 1}_${userId}`).row()
+            keyboard.text('💾 Export .txt 💾', `txt_${userId}`)
 
-            buttons.push([
-                Markup.button.callback('⏮', `myanime_${parseInt(page) - 1}_${userId}`, parseInt(page) < 2),
-                Markup.button.callback('⏭', `myanime_${parseInt(page) + 1}_${userId}`, animes.length < 11)
-            ])
-
-            buttons.push([
-                Markup.button.callback('💾 Export .txt 💾', `txt_${userId}`, !!ctx.callbackQuery.inline_message_id),
-            ])
-
-            const keyboard = Markup.inlineKeyboard(buttons)
-
-            return ctx.editMessageText(text, { ...keyboard, parse_mode: 'HTML' })
+            return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard })
         }
     }
 })
 
 // afm = add from menu
-actions.action(/afm_\d+_\d+_\d+_\d+/i, async ctx => {
+actions.callbackQuery(/afm_\d+_\d+_\d+_\d+/i, async (ctx) => {
     if ('data' in ctx.callbackQuery) {
         const [season, episode, user, animeId] = ctx.callbackQuery.data.replace(/afm_/i, '').split('_')
         try {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== user) {
-                await ctx.answerCbQuery('This is not your menu').catch(e => logger.error(e))
+                await ctx.answerCallbackQuery('This is not your menu').catch(e => logger.error(e))
                 return
             }
 
             const results = await getAnime(parseInt(animeId))
-            if (!results) return ctx.answerCbQuery('Anime not found').catch(e => logger.error(e))
+            if (!results) return ctx.answerCallbackQuery('Anime not found').catch(e => logger.error(e))
             const anime = results.Media
             const nativeTitle = anime.title.native
             const romajiTitle = anime.title.romaji
@@ -441,7 +431,7 @@ actions.action(/afm_\d+_\d+_\d+_\d+/i, async ctx => {
                         onAir: anime.nextAiringEpisode?.airingAt ? true : false,
                     }
                 })
-                .then(() => ctx.answerCbQuery('Anime added/updated!').catch(logger.error))
+                .then(() => ctx.answerCallbackQuery('Anime added/updated!').catch(logger.error))
                 .catch(logger.error)
 
         } catch (error) {
@@ -450,22 +440,22 @@ actions.action(/afm_\d+_\d+_\d+_\d+/i, async ctx => {
     }
 })
 
-actions.action(/adf_\d+_\d+/i, async ctx => {
+actions.callbackQuery(/adf_\d+_\d+/i, async (ctx) => {
     if (!('data' in ctx.callbackQuery)) return
 
     const [animeId, userId] = ctx.callbackQuery.data.replace(/adf_/i, '').split('_')
     if (ctx.callbackQuery.from.id.toString() !== userId) {
-        await ctx.answerCbQuery('This is not your anime').catch(e => logger.error(e))
+        await ctx.answerCallbackQuery('This is not your anime').catch(e => logger.error(e))
         return
     }
 
     const anime = await prisma.anime.findUnique({ where: { id: parseInt(animeId) } })
     if (!anime) {
-        await ctx.answerCbQuery('Anime not found').catch(logger.error)
+        await ctx.answerCallbackQuery('Anime not found').catch(logger.error)
         return
     }
 
-    await ctx.answerCbQuery('Fetching details...').catch(logger.error)
+    await ctx.answerCallbackQuery('Fetching details...').catch(logger.error)
 
     if (anime.anilistId) {
         const details = await getBestDetails('anime', anime)
@@ -474,10 +464,11 @@ actions.action(/adf_\d+_\d+/i, async ctx => {
             return
         }
 
-        return ctx.replyWithHTML(detailsPreviewText(details), Markup.inlineKeyboard([
-            [Markup.button.callback('Save details', `ads_${animeId}_${userId}_${details.provider}_${encodeURIComponent(details.id)}`)],
-            [Markup.button.callback('Cancel', `animeInfo_${animeId}_${userId}`)],
-        ])).catch(logger.error)
+        const keyboard = new InlineKeyboard()
+            .text('Save details', `ads_${animeId}_${userId}_${details.provider}_${encodeURIComponent(details.id)}`).row()
+            .text('Cancel', `animeInfo_${animeId}_${userId}`)
+
+        return ctx.reply(detailsPreviewText(details), { parse_mode: 'HTML', reply_markup: keyboard }).catch(logger.error)
     }
 
     const results = await searchDetails('anime', anime.name, 5)
@@ -486,15 +477,16 @@ actions.action(/adf_\d+_\d+/i, async ctx => {
         return
     }
 
-    const buttons = results.slice(0, 8).map(details => [
-        Markup.button.callback(detailButtonLabel(details), `adp_${animeId}_${userId}_${details.provider}_${encodeURIComponent(details.id)}`),
-    ])
-    buttons.push([Markup.button.callback('Cancel', `animeInfo_${animeId}_${userId}`)])
+    const keyboard = new InlineKeyboard()
+    for (const details of results.slice(0, 8)) {
+        keyboard.text(detailButtonLabel(details), `adp_${animeId}_${userId}_${details.provider}_${encodeURIComponent(details.id)}`).row()
+    }
+    keyboard.text('Cancel', `animeInfo_${animeId}_${userId}`)
 
-    return ctx.replyWithHTML(`Select details for <b>${escapeHtml(anime.name)}</b>:`, Markup.inlineKeyboard(buttons)).catch(logger.error)
+    return ctx.reply(`Select details for <b>${escapeHtml(anime.name)}</b>:`, { parse_mode: 'HTML', reply_markup: keyboard }).catch(logger.error)
 })
 
-actions.action(/adp_\d+_\d+_[^_]+_.+/i, async ctx => {
+actions.callbackQuery(/adp_\d+_\d+_[^_]+_.+/i, async (ctx) => {
     if (!('data' in ctx.callbackQuery)) return
 
     const parsed = parseDetailAction(ctx.callbackQuery.data, 'adp')
@@ -502,11 +494,11 @@ actions.action(/adp_\d+_\d+_[^_]+_.+/i, async ctx => {
 
     const { recordId, userId, provider, providerId } = parsed
     if (ctx.callbackQuery.from.id.toString() !== userId) {
-        await ctx.answerCbQuery('This is not your anime').catch(e => logger.error(e))
+        await ctx.answerCallbackQuery('This is not your anime').catch(e => logger.error(e))
         return
     }
 
-    await ctx.answerCbQuery().catch(logger.error)
+    await ctx.answerCallbackQuery().catch(logger.error)
 
     const details = await getDetailsByProvider('anime', provider, providerId)
     if (!details) {
@@ -514,13 +506,14 @@ actions.action(/adp_\d+_\d+_[^_]+_.+/i, async ctx => {
         return
     }
 
-    return ctx.replyWithHTML(detailsPreviewText(details), Markup.inlineKeyboard([
-        [Markup.button.callback('Save details', `ads_${recordId}_${userId}_${details.provider}_${encodeURIComponent(details.id)}`)],
-        [Markup.button.callback('Cancel', `animeInfo_${recordId}_${userId}`)],
-    ])).catch(logger.error)
+    const keyboard = new InlineKeyboard()
+        .text('Save details', `ads_${recordId}_${userId}_${details.provider}_${encodeURIComponent(details.id)}`).row()
+        .text('Cancel', `animeInfo_${recordId}_${userId}`)
+
+    return ctx.reply(detailsPreviewText(details), { parse_mode: 'HTML', reply_markup: keyboard }).catch(logger.error)
 })
 
-actions.action(/ads_\d+_\d+_[^_]+_.+/i, async ctx => {
+actions.callbackQuery(/ads_\d+_\d+_[^_]+_.+/i, async (ctx) => {
     if (!('data' in ctx.callbackQuery)) return
 
     const parsed = parseDetailAction(ctx.callbackQuery.data, 'ads')
@@ -528,13 +521,13 @@ actions.action(/ads_\d+_\d+_[^_]+_.+/i, async ctx => {
 
     const { recordId, userId, provider, providerId } = parsed
     if (ctx.callbackQuery.from.id.toString() !== userId) {
-        await ctx.answerCbQuery('This is not your anime').catch(e => logger.error(e))
+        await ctx.answerCallbackQuery('This is not your anime').catch(e => logger.error(e))
         return
     }
 
     const details = await getDetailsByProvider('anime', provider, providerId)
     if (!details) {
-        await ctx.answerCbQuery('Could not load details').catch(logger.error)
+        await ctx.answerCallbackQuery('Could not load details').catch(logger.error)
         return
     }
 
@@ -543,17 +536,17 @@ actions.action(/ads_\d+_\d+_[^_]+_.+/i, async ctx => {
         data: toAnimeUpdate(details),
     })
 
-    await ctx.answerCbQuery('Details saved!').catch(logger.error)
-    return ctx.replyWithHTML(`Saved details from <b>${escapeHtml(details.providerLabel)}</b> for <b>${escapeHtml(details.title)}</b>.`).catch(logger.error)
+    await ctx.answerCallbackQuery('Details saved!').catch(logger.error)
+    return ctx.reply(`Saved details from <b>${escapeHtml(details.providerLabel)}</b> for <b>${escapeHtml(details.title)}</b>.`, { parse_mode: 'HTML' }).catch(logger.error)
 })
 
-actions.action(/deleteAnime_/, async ctx => {
+actions.callbackQuery(/deleteAnime_/, async (ctx) => {
     try {
         if ('data' in ctx.callbackQuery && !ctx.callbackQuery.inline_message_id) {
             const [animeId, userId] = ctx.callbackQuery.data.replace(/deleteAnime_/i, '').split('_')
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== userId) {
-                await ctx.answerCbQuery('This is not your menu').catch(e => logger.error(e))
+                await ctx.answerCallbackQuery('This is not your menu').catch(e => logger.error(e))
                 return
             }
             await prisma.anime.delete({
@@ -561,9 +554,9 @@ actions.action(/deleteAnime_/, async ctx => {
                     id: parseInt(animeId)
                 }
             }).then(() => {
-                ctx.answerCbQuery('Anime deleted!').catch(logger.error)
-                ctx.replyWithHTML('Your anime record was deleted.\nIf you made a mistake, just send the <code>monospaced text</code> in the previous message.')
-            }).catch(() => ctx.answerCbQuery().catch(logger.error))
+                ctx.answerCallbackQuery('Anime deleted!').catch(logger.error)
+                ctx.reply('Your anime record was deleted.\nIf you made a mistake, just send the <code>monospaced text</code> in the previous message.', { parse_mode: 'HTML' })
+            }).catch(() => ctx.answerCallbackQuery().catch(logger.error))
         }
     } catch (error) {
         logger.error(error)

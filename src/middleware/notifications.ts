@@ -1,10 +1,10 @@
-import { Telegraf } from "telegraf"
+import type { Api } from "grammy"
 import { prisma } from "../db/prisma.js"
 import { getAnimeRelations, getNovelRelations } from "../anilist-service/index.js"
 import { logger } from "../logger/index.js"
 import { escapeHtml } from "../utils/index.js"
 
-export const checkNewSeasons = async (bot: Telegraf, fetcher = getAnimeRelations, targetUserId?: string) => {
+export const checkNewSeasons = async (api: Api, fetcher = getAnimeRelations, targetUserId?: string) => {
   logger.info(`Checking for new seasons... ${targetUserId ? `(Target: ${targetUserId})` : ''}`)
   try {
     // Get all unique anilistIds from the database
@@ -84,7 +84,7 @@ export const checkNewSeasons = async (bot: Telegraf, fetcher = getAnimeRelations
                     const message = `📢 <b>New Season Alert!</b>\n\nA sequel to an anime you are watching is available or coming soon:\n\n<b>${escapeHtml(title)}</b>\n\nDo you want to add it to your list?`
 
                     try {
-                      await bot.telegram.sendMessage(user.userId, message, {
+                      await api.sendMessage(user.userId, message, {
                         parse_mode: 'HTML'
                       })
 
@@ -112,7 +112,7 @@ export const checkNewSeasons = async (bot: Telegraf, fetcher = getAnimeRelations
   }
 }
 
-export const checkNewNovelReleases = async (bot: Telegraf, fetcher = getNovelRelations, targetUserId?: string) => {
+export const checkNewNovelReleases = async (api: Api, fetcher = getNovelRelations, targetUserId?: string) => {
   logger.info(`Checking for new novel releases... ${targetUserId ? `(Target: ${targetUserId})` : ''}`)
   try {
     const whereClause: any = {
@@ -186,7 +186,7 @@ export const checkNewNovelReleases = async (bot: Telegraf, fetcher = getNovelRel
                     const message = `📚 <b>New Novel Alert!</b>\n\nA sequel/related novel to one you are reading is available or coming soon:\n\n<b>${escapeHtml(title)}</b>\n\nDo you want to add it to your list?`
 
                     try {
-                      await bot.telegram.sendMessage(user.userId, message, {
+                      await api.sendMessage(user.userId, message, {
                         parse_mode: 'HTML'
                       })
 

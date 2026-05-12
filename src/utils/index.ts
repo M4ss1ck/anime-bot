@@ -1,7 +1,7 @@
 import { prisma } from "../db/prisma.js"
 import { scheduled } from "../scheduler/index.js"
-import type { Telegraf } from "telegraf"
-import { Markup } from "telegraf"
+import type { Bot } from "grammy"
+import { InlineKeyboard } from "grammy"
 import { logger } from "../logger/index.js"
 import dayjs from 'dayjs'
 import { sendDailySummaries } from "../middleware/notify.js"
@@ -39,7 +39,7 @@ export const convertMsToRelativeTime = (milliseconds: number) => {
     return `${days > 0 ? days + ' day(s) ' : ''}${hours > 0 ? hours + ' h ' : ''}${minutes > 0 ? minutes + ' min ' : ''}${seconds > 0 ? seconds + ' s' : ''}`
 }
 
-export const runScheduled = async (bot: Telegraf) => {
+export const runScheduled = async (bot: Bot) => {
     logger.info('Re-scheduling jobs from database...');
     const jobs = await prisma.job.findMany()
     let reScheduledCount = 0;
@@ -57,22 +57,22 @@ export const runScheduled = async (bot: Telegraf) => {
         }
 
         try {
-            const buttons = []
+            let keyboard: InlineKeyboard | undefined
             // check if job id starts with anime id (for anime reminders)
             if (/^\d+:/g.test(job.id)) {
                 const [animeId, date] = job.id.split(':');
-                buttons.push(Markup.button.callback('Repeat next week', `a_scheduler:${animeId}:${dayjs(Number(date)).add(7, 'days').valueOf()}:${userId}`))
+                keyboard = new InlineKeyboard()
+                    .text('Repeat next week', `a_scheduler:${animeId}:${dayjs(Number(date)).add(7, 'days').valueOf()}:${userId}`)
             } else if (job.id.startsWith('custom:')) {
                 const date = job.id.split(':')[1]
-                buttons.push(Markup.button.callback('Cancel Reminder', `cancel:${job.id}`))
-                buttons.push(Markup.button.callback('Check date', `check_date:${date}`))
+                keyboard = new InlineKeyboard()
+                    .text('Cancel Reminder', `cancel:${job.id}`)
+                    .text('Check date', `check_date:${date}`)
             }
             // Add more conditions here if other job types exist
 
-            const keyboard = buttons.length > 0 ? Markup.inlineKeyboard(buttons) : undefined;
-
             const callback = () => {
-                bot.telegram.sendMessage(userId, job.text, keyboard).catch(err => {
+                bot.api.sendMessage(userId, job.text, { reply_markup: keyboard }).catch(err => {
                     logger.error(`Error sending scheduled message for job ${job.id} to user ${userId}:`, err);
                     // Consider removing job if user blocked bot, etc.
                 });
@@ -85,7 +85,6 @@ export const runScheduled = async (bot: Telegraf) => {
                 callback,
                 job.text
             )
-            // logger.success(`Re-scheduled: ${jobText}`); // Original log (commented out)
             reScheduledCount++;
         } catch (error) {
             logger.error(`Failed to re-schedule job ${job.id}:`, error);
@@ -99,21 +98,13 @@ export const runScheduled = async (bot: Telegraf) => {
         const dailySummaryJobId = 'internal:daily_summary';
         const cronExpression = '0 9 * * *'; // Run daily at 9:00 AM server time
 
-        // Check if the job already exists (e.g., from a previous run within the same process lifetime)
-        // Note: This check might be redundant if `scheduled` handles overwriting or prevents duplicates.
-        // const existingJob = getScheduled(dailySummaryJobId); // Assumes getScheduled is available/imported
-
-        // if (!existingJob) { 
         await scheduled(
             dailySummaryJobId,
             cronExpression,
-            () => sendDailySummaries(bot),
+            () => sendDailySummaries(bot.api),
             'Daily Anime Summary Generation' // Optional description
         );
         logger.success(`Scheduled daily anime summary with ID: ${dailySummaryJobId} (${cronExpression})`);
-        // } else {
-        //     logger.info(`Daily summary job (${dailySummaryJobId}) already scheduled.`);
-        // }
     } catch (error) {
         logger.error('Failed to schedule the daily anime summary job:', error);
     }
@@ -129,8 +120,8 @@ export const runScheduled = async (bot: Telegraf) => {
             newSeasonCheckJobId,
             cronExpression,
             () => {
-                checkNewSeasons(bot)
-                checkNewNovelReleases(bot)
+                checkNewSeasons(bot.api)
+                checkNewNovelReleases(bot.api)
             },
             'New Season/Novel Check'
         );

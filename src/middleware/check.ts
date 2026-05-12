@@ -1,4 +1,5 @@
-import { Composer } from 'telegraf'
+import { Composer } from 'grammy'
+import type { Context } from 'grammy'
 import { checkNewSeasons, checkNewNovelReleases } from './notifications.js'
 import { logger } from '../logger/index.js'
 
@@ -8,8 +9,8 @@ const check = new Composer()
 const rateLimit = new Map<string, number>()
 const RATE_LIMIT_WINDOW = 15 * 60 * 1000 // 15 minutes
 
-export const handleCheck = async (ctx: any) => {
-  const userId = ctx.from.id.toString()
+export const handleCheck = async (ctx: Context) => {
+  const userId = ctx.from!.id.toString()
   const now = Date.now()
 
   if (rateLimit.has(userId)) {
@@ -28,8 +29,8 @@ export const handleCheck = async (ctx: any) => {
     // Run checks for this user
     // We can run them in parallel
     await Promise.all([
-      checkNewSeasons(ctx.telegram as any, undefined, userId),
-      checkNewNovelReleases(ctx.telegram as any, undefined, userId)
+      checkNewSeasons(ctx.api, undefined, userId),
+      checkNewNovelReleases(ctx.api, undefined, userId)
     ])
 
     // Note: The check functions send notifications directly if updates are found.
