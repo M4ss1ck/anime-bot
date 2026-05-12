@@ -1,4 +1,5 @@
 import { Bot, webhookCallback } from 'grammy'
+import { autoRetry } from '@grammyjs/auto-retry'
 import { Elysia } from 'elysia'
 import { logger } from './logger/index.js'
 import anime from './middleware/anime.js'
@@ -23,6 +24,8 @@ if (!botToken) {
 }
 
 const bot = new Bot(botToken)
+
+bot.api.config.use(autoRetry())
 
 bot
     .use(commandLogger)

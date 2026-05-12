@@ -22,6 +22,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@grammyjs/auto-retry": "^2.0.2",
     "@libsql/client": "^0.15.0",
     "@prisma/adapter-libsql": "^7.0.1",
     "@prisma/client": "^7.0.1",
