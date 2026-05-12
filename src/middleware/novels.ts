@@ -595,10 +595,10 @@ novel.callbackQuery(/mynovel_\d+_\d+/i, async ctx => {
 
             const buttons = novels.slice(0, 10).map(novel => [btn(`"${novel.name}"`, `novelInfo_${novel.id}_${userId}`)])
 
-            buttons.push([
-                btn('⏮', `mynovel_${parseInt(page) - 1}_${userId}`),
-                btn('⏭', `mynovel_${parseInt(page) + 1}_${userId}`)
-            ])
+            const navRow = []
+            if (parseInt(page) > 1) navRow.push(btn('⏮', `mynovel_${parseInt(page) - 1}_${userId}`))
+            if (novels.length > 10) navRow.push(btn('⏭', `mynovel_${parseInt(page) + 1}_${userId}`))
+            if (navRow.length > 0) buttons.push(navRow)
 
             buttons.push([
                 btn('💾 Export .txt 💾', `ntxt_${userId}`),
@@ -645,10 +645,10 @@ novel.callbackQuery(/releasing_\d+_\d+/i, async ctx => {
 
             const buttons = novels.slice(0, 10).map(novel => [btn(`"${novel.name}"`, `novelInfo_${novel.id}_${userId}_rel`)])
 
-            buttons.push([
-                btn('⏮', `releasing_${parseInt(page) - 1}_${userId}`),
-                btn('⏭', `releasing_${parseInt(page) + 1}_${userId}`)
-            ])
+            const navRow = []
+            if (parseInt(page) > 1) navRow.push(btn('⏮', `releasing_${parseInt(page) - 1}_${userId}`))
+            if (novels.length > 10) navRow.push(btn('⏭', `releasing_${parseInt(page) + 1}_${userId}`))
+            if (navRow.length > 0) buttons.push(navRow)
 
             const keyboard = InlineKeyboard.from(buttons)
 

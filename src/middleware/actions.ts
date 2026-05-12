@@ -277,8 +277,11 @@ actions.callbackQuery(/myanime_\d+_\d+/i, async (ctx) => {
             for (const anime of animes.slice(0, 10)) {
                 keyboard.text(`"${anime.name}"`, `animeInfo_${anime.id}_${userId}`).row()
             }
-            keyboard.text('⏮', `myanime_${parseInt(page) - 1}_${userId}`)
-            keyboard.text('⏭', `myanime_${parseInt(page) + 1}_${userId}`).row()
+            if (parseInt(page) > 1)
+                keyboard.text('⏮', `myanime_${parseInt(page) - 1}_${userId}`)
+            if (animes.length > 10)
+                keyboard.text('⏭', `myanime_${parseInt(page) + 1}_${userId}`)
+            keyboard.row()
             keyboard.text('💾 Export .txt 💾', `txt_${userId}`)
 
             return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard })
@@ -322,8 +325,10 @@ actions.callbackQuery(/airing_\d+_\d+/i, async (ctx) => {
             for (const anime of animes.slice(0, 10)) {
                 keyboard.text(`"${anime.name}"`, `animeInfo_${anime.id}_${userId}_airing`).row()
             }
-            keyboard.text('⏮', `airing_${parseInt(page) - 1}_${userId}`)
-            keyboard.text('⏭', `airing_${parseInt(page) + 1}_${userId}`)
+            if (parseInt(page) > 1)
+                keyboard.text('⏮', `airing_${parseInt(page) - 1}_${userId}`)
+            if (animes.length > 10)
+                keyboard.text('⏭', `airing_${parseInt(page) + 1}_${userId}`)
 
             return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard })
         }
@@ -373,8 +378,11 @@ actions.callbackQuery(/Local_\d+_\d+_.+/i, async (ctx) => {
             for (const anime of animes) {
                 keyboard.text(`"${anime.name}"`, `animeInfo_${anime.id}_${userId}`).row()
             }
-            keyboard.text('⏮', `myanime_${parseInt(page) - 1}_${userId}`)
-            keyboard.text('⏭', `myanime_${parseInt(page) + 1}_${userId}`).row()
+            if (parseInt(page) > 1)
+                keyboard.text('⏮', `myanime_${parseInt(page) - 1}_${userId}`)
+            if (animes.length > 10)
+                keyboard.text('⏭', `myanime_${parseInt(page) + 1}_${userId}`)
+            keyboard.row()
             keyboard.text('💾 Export .txt 💾', `txt_${userId}`)
 
             return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard })
