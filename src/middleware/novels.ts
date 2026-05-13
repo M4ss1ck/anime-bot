@@ -1,10 +1,22 @@
 import { Composer, InlineKeyboard, InputFile } from 'grammy'
 import { logger } from '../logger/index.js'
-import { getNovel, getNovels } from '../anilist-service/index.js'
+import { getNovel } from '../anilist-service/index.js'
 import { prisma } from '../db/prisma.js'
 import { escapeHtml } from '../utils/index.js'
 import * as fs from 'fs/promises'
 import { getBestDetails, getDetailsByProvider, searchDetails, summarizeDetails, toReadingUpdate } from '../details-service/index.js'
+import {
+    buildAddReadingCallback,
+    buildReadingResultButton,
+    noAddCallbackText,
+    parseAddReadingCallback,
+    parseReadingDetailsCallback,
+    readingDetailsPreviewText,
+    readingSeriesName,
+    toNovelCreateData,
+    toNovelUpdateData,
+} from './novel-search-results.js'
+import type { DetailProviderId } from '../details-service/types.js'
 
 const btn = (text: string, callback_data: string) => ({ text, callback_data })
 
@@ -13,65 +25,55 @@ const novel = new Composer()
 novel.command('novel', async (ctx) => {
     const search = (ctx.msg?.text ?? '').replace(/^\/novel((@\w+)?\s+)?/i, '')
     if (search.length > 2) {
-        // buscar en AniList
         try {
-            const results = await getNovels(search)
-            const media = results.Page?.media
-            if (media && media.length > 0) {
-                const buttons = []
-                for (const novel of media)
-                    buttons.push([btn(novel.title.romaji ?? 'placeholder text', `getNovel${novel.id}`)])
+            const results = await searchDetails('reading', search, 8)
+            const buttons = results
+                .map(buildReadingResultButton)
+                .filter((button): button is { text: string, callback_data: string } => Boolean(button))
+                .map(button => [button])
 
-                buttons.push([
-                    btn('⏭', `NovelPage${2}-${encodeURIComponent(search)}`),
-                ])
-
+            if (buttons.length > 0) {
                 const keyboard = InlineKeyboard.from(buttons)
                 const text = `Results for <b>${escapeHtml(search)}</b>`
 
                 return ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard })
             }
-            else {
-                return ctx.reply('No novel found.', { parse_mode: 'HTML' })
-            }
+
+            return ctx.reply('No reading series found.', { parse_mode: 'HTML' })
         } catch (error) {
             logger.error(error)
         }
     }
 })
 
-novel.callbackQuery(/NovelPage\d+-/i, async (ctx) => {
-    ctx.answerCallbackQuery().catch(logger.error)
-    const pageString = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data?.match(/NovelPage(\d+)/i)?.[1] : null
-    const page = parseInt(pageString ?? '1')
-    const search = 'data' in ctx.callbackQuery ? decodeURIComponent(ctx.callbackQuery.data?.replace(/NovelPage\d+-/i, '') ?? '') : ''
-    if (search && search.length > 2) {
-        // buscar en AniList
-        try {
-            const results = await getNovels(search, page)
-            const media = results.Page?.media
-            const total = results.Page?.pageInfo?.total as number ?? 1
-            const perPage = results.Page?.pageInfo?.perPage as number ?? 5
-            if (media && media.length > 0) {
-                const buttons = []
-                for (const novel of media)
-                    buttons.push([btn(novel.title.romaji ?? 'placeholder text', `getNovel${novel.id}`)])
+novel.callbackQuery(/nvd_[^_]+_.+/i, async (ctx) => {
+    await ctx.answerCallbackQuery().catch(logger.error)
+    if (!('data' in ctx.callbackQuery)) return
 
-                const showPrevBtn = page >= 2
-                const showNextBtn = total / perPage > page
+    const parsed = parseReadingDetailsCallback(ctx.callbackQuery.data, 'nvd')
+    if (!parsed) return
 
-                const lastRow = []
-                showPrevBtn && lastRow.push(btn('⏮', `NovelPage${page - 1}-${encodeURIComponent(search)}`))
-                showNextBtn && lastRow.push(btn('⏭', `NovelPage${page + 1}-${encodeURIComponent(search)}`))
-
-                buttons.push(lastRow)
-
-                return ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: buttons } })
-            }
-        } catch (error) {
-            logger.error(error)
-        }
+    const details = await getDetailsByProvider('reading', parsed.provider, parsed.id)
+    if (!details) {
+        return ctx.reply('No reading series found.', { parse_mode: 'HTML' })
     }
+
+    const addAction = ctx.from?.id ? buildAddReadingCallback(ctx.from.id.toString(), details) : null
+    if (!addAction) {
+        return ctx.reply(noAddCallbackText(details), { parse_mode: 'HTML' })
+    }
+
+    const keyboard = InlineKeyboard.from([[btn('Add to my list', addAction)]])
+    const cover = details.coverImageUrl
+    const caption = readingDetailsPreviewText(details)
+
+    return cover && !ctx.callbackQuery.inline_message_id
+        ? ctx.replyWithPhoto(cover, {
+            caption: caption.slice(0, 1020),
+            parse_mode: 'HTML',
+            reply_markup: keyboard,
+        }).catch(() => ctx.reply(caption.slice(0, 4090), { parse_mode: 'HTML', reply_markup: keyboard }))
+        : ctx.reply(caption.slice(0, 4090), { parse_mode: 'HTML', reply_markup: keyboard })
 })
 
 novel.callbackQuery(/getNovel/, async (ctx) => {
@@ -88,7 +90,11 @@ Genres: ${media.genres ? media.genres.join(', ') : 'n/a'}\nVolumes: ${media.volu
 
                 const cover = media.coverImage.large
 
-                const addAction = `nfm_${ctx.from?.id}_${novelId}`.slice(0, 63)
+                const addAction = ctx.from?.id ? buildAddReadingCallback(ctx.from.id.toString(), { provider: 'anilist', id: String(novelId) }) : null
+                if (!addAction) {
+                    return ctx.reply(`Could not create an add button for <b>${escapeHtml(media.title.romaji ?? 'Title')}</b>. The provider id is too long for Telegram callback data.`, { parse_mode: 'HTML' })
+                }
+
                 const buttons = [[btn('Add to my list', addAction)]]
                 const keyboard = InlineKeyboard.from(buttons)
 
@@ -806,10 +812,24 @@ function parseDetailAction(data: string, prefix: string) {
     }
 }
 
+function parseNfmCallback(data: string): { user: string, anilistId?: number, provider?: DetailProviderId, providerId?: string } | null {
+    const multi = parseAddReadingCallback(data)
+    if (multi) return { user: multi.userId, provider: multi.provider, providerId: multi.id }
+
+    const [user, anilistIdStr] = data.replace(/^nfm_/i, '').split('_')
+    const anilistId = parseInt(anilistIdStr)
+    if (!user || isNaN(anilistId)) return null
+
+    return { user, anilistId }
+}
+
 // nfm = novel from menu
-novel.callbackQuery(/nfm_\d+_\d+/i, async ctx => {
+novel.callbackQuery(/nfm_\d+_.+/i, async ctx => {
     if ('data' in ctx.callbackQuery) {
-        const [user, animeId] = ctx.callbackQuery.data.replace(/nfm_/i, '').split('_')
+        const parsed = parseNfmCallback(ctx.callbackQuery.data)
+        if (!parsed) return
+
+        const { user } = parsed
         try {
             // check if it's the right user
             if (ctx.callbackQuery.from.id.toString() !== user) {
@@ -819,41 +839,64 @@ novel.callbackQuery(/nfm_\d+_\d+/i, async ctx => {
 
             await ctx.answerCallbackQuery().catch(logger.error)
 
-            const results = await getNovel(parseInt(animeId))
-            if (!results) return logger.error('Error with novel update/add')
-            const novel = results.Media
-            const note = `${novel.title.romaji ?? 'Title'} (${novel.id})\n${novel.title.english ?? ''}\nGenres: ${novel.genres ? novel.genres.join(', ') : 'n/a'}\nVolumes: ${novel.volumes ?? 'n/a'}  Chapters: ${novel.chapters ?? 'n/a'}\nScore: ${novel.averageScore ?? 'n/a'}\nStatus: ${novel.status ?? 'n/a'}\nSource: ${novel.source ?? 'n/a'}`
+            if (parsed.anilistId) {
+                const results = await getNovel(parsed.anilistId)
+                if (!results) return logger.error('Error with novel update/add')
+                const novel = results.Media
+                const note = `${novel.title.romaji ?? 'Title'} (${novel.id})\n${novel.title.english ?? ''}\nGenres: ${novel.genres ? novel.genres.join(', ') : 'n/a'}\nVolumes: ${novel.volumes ?? 'n/a'}  Chapters: ${novel.chapters ?? 'n/a'}\nScore: ${novel.averageScore ?? 'n/a'}\nStatus: ${novel.status ?? 'n/a'}\nSource: ${novel.source ?? 'n/a'}`
+                await prisma.novel
+                    .upsert({
+                        where: {
+                            name_userId: {
+                                name: novel.title.english.trim(),
+                                userId: user
+                            }
+                        },
+                        create: {
+                            name: novel.title.english.trim(),
+                            anilistId: novel.id,
+                            volume: 1,
+                            note,
+                            releasing: /releasing/i.test(novel.status) ? true : false,
+                            user: {
+                                connectOrCreate: {
+                                    where: {
+                                        id: user,
+                                    },
+                                    create: {
+                                        id: user,
+                                    }
+                                }
+                            }
+                        },
+                        update: {
+                            note,
+                            anilistId: novel.id,
+                        }
+                    })
+                    .then(() => logger.info('Anime added/updated!'))
+                    .catch(logger.error)
+                return
+            }
+
+            if (!parsed.provider || !parsed.providerId) return logger.error('Error with reading series update/add')
+
+            const details = await getDetailsByProvider('reading', parsed.provider, parsed.providerId)
+            if (!details) return logger.error('Error with reading series update/add')
+
+            const name = readingSeriesName(details)
             await prisma.novel
                 .upsert({
                     where: {
                         name_userId: {
-                            name: novel.title.english.trim(),
-                            userId: user
-                        }
+                            name,
+                            userId: user,
+                        },
                     },
-                    create: {
-                        name: novel.title.english.trim(),
-                        anilistId: novel.id,
-                        volume: 1,
-                        note,
-                        releasing: /releasing/i.test(novel.status) ? true : false,
-                        user: {
-                            connectOrCreate: {
-                                where: {
-                                    id: user,
-                                },
-                                create: {
-                                    id: user,
-                                }
-                            }
-                        }
-                    },
-                    update: {
-                        note,
-                        anilistId: novel.id,
-                    }
+                    create: toNovelCreateData(details, user),
+                    update: toNovelUpdateData(details),
                 })
-                .then(() => logger.info('Anime added/updated!'))
+                .then(() => logger.info('Novel added/updated!'))
                 .catch(logger.error)
 
         } catch (error) {
