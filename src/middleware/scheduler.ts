@@ -17,7 +17,7 @@ scheduler.command('now', async ctx => {
 })
 
 scheduler.command('tping', async ctx => {
-    const id = `tping:${ctx.from!.id}`
+    const id = `tping:${ctx.from?.id ?? 0}`
     const keyboard = new InlineKeyboard()
         .text('Cancel', `cancel:${id}`)
     const future = dayjs().add(15, 's')
@@ -101,9 +101,9 @@ scheduler.callbackQuery(/a_scheduler:/i, async ctx => {
  * Usage: /reminder <date or cron expression> - <text>
  */
 scheduler.command('reminder', async ctx => {
-    if (ctx.message!.text) {
-        const [date, text] = ctx.message!.text.replace(/^\/reminder(@\w+)?\s/i, '').split(' - ')
-        const userId = ctx.from!.id
+    if (ctx.msg?.text ?? '') {
+        const [date, text] = (ctx.msg?.text ?? '').replace(/^\/reminder(@\w+)?\s/i, '').split(' - ')
+        const userId = ctx.from?.id ?? 0
         if (text && userId && date) {
             const jobId = `custom:${date}:${userId}`
             const keyboard = new InlineKeyboard()
@@ -119,7 +119,7 @@ scheduler.command('reminder', async ctx => {
 })
 
 scheduler.command(['myjobs', 'myreminders'], async ctx => {
-    const userId = ctx.from!.id.toString()
+    const userId = ctx.from?.id?.toString() ?? ''
     const jobs = await prisma.job.findMany({
         where: {
             id: {
@@ -142,7 +142,7 @@ scheduler.command(['myjobs', 'myreminders'], async ctx => {
 })
 
 scheduler.command('convert', async ctx => {
-    const date = ctx.message!.text.replace(/^\/convert(@\w+)?\s/, '')
+    const date = (ctx.msg?.text ?? '').replace(/^\/convert(@\w+)?\s/, '')
     const text = `<b>${date}</b>\nDate: ${dayjs(date)}\nMilliseconds: ${dayjs(date).valueOf()}`
     return ctx.reply(text, { parse_mode: 'HTML' }).catch(logger.error)
 })

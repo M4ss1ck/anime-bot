@@ -171,13 +171,13 @@ admin.filter(ctx => ctx.from?.id === Number(adminID)).command('dbexport', async 
 admin.filter(ctx => ctx.from?.id === Number(adminID)).command('dbimport', async ctx => {
     try {
         // Check if replying to a document
-        const reply = ctx.message!.reply_to_message
-        if (!reply || !('document' in reply)) {
+        const reply = ctx.msg?.reply_to_message
+        if (!reply || !('document' in reply) || !reply.document) {
             await ctx.reply('⚠️ Please reply to a JSON export file with /dbimport')
             return
         }
 
-        const document = reply.document!
+        const document = reply.document
         if (!document.file_name?.endsWith('.json')) {
             await ctx.reply('⚠️ Please reply to a .json file')
             return

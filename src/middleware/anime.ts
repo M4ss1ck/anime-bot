@@ -8,7 +8,7 @@ import { convertMsToRelativeTime, escapeHtml } from '../utils/index.js'
 const anime = new Composer()
 
 anime.command('anime', async (ctx) => {
-    const search = ctx.message!.text.replace(/^\/anime((@\w+)?\s+)?/i, '')
+    const search = (ctx.msg?.text ?? '').replace(/^\/anime((@\w+)?\s+)?/i, '')
     if (search.length > 2) {
         // buscar en AniList
         try {
@@ -127,7 +127,7 @@ anime.command('animebd', async (ctx) => {
 })
 
 anime.command('character', async (ctx) => {
-    const search = ctx.message!.text.replace(/^\/character((@\w+)?\s+)?/i, '')
+    const search = (ctx.msg?.text ?? '').replace(/^\/character((@\w+)?\s+)?/i, '')
     if (search.length > 2) {
         try {
             const results = await getCharacters(search)

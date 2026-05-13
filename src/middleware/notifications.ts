@@ -9,7 +9,7 @@ export const checkNewSeasons = async (api: Api, fetcher = getAnimeRelations, tar
   try {
     // Get all unique anilistIds from the database
     // If targetUserId is provided, only get animes for that user
-    const whereClause: any = {
+    const whereClause: { anilistId: { not: null }; userId?: string } = {
       anilistId: {
         not: null
       }
@@ -43,7 +43,7 @@ export const checkNewSeasons = async (api: Api, fetcher = getAnimeRelations, tar
 
             if (sequel.status === 'RELEASING' || sequel.status === 'NOT_YET_RELEASED') {
               // Find users who track the original anime
-              const userWhereClause: any = {
+              const userWhereClause: { anilistId: number | null; userId?: string } = {
                 anilistId: animeRecord.anilistId
               }
 
@@ -115,7 +115,7 @@ export const checkNewSeasons = async (api: Api, fetcher = getAnimeRelations, tar
 export const checkNewNovelReleases = async (api: Api, fetcher = getNovelRelations, targetUserId?: string) => {
   logger.info(`Checking for new novel releases... ${targetUserId ? `(Target: ${targetUserId})` : ''}`)
   try {
-    const whereClause: any = {
+    const whereClause: { anilistId: { not: null }; userId?: string } = {
       anilistId: {
         not: null
       }
@@ -148,7 +148,7 @@ export const checkNewNovelReleases = async (api: Api, fetcher = getNovelRelation
             // For novels, status might be RELEASING even if it's just a new volume.
             // But here we are looking for *new entries* in AniList (e.g. Part 2, Sequel).
             if (sequel.status === 'RELEASING' || sequel.status === 'NOT_YET_RELEASED') {
-              const userWhereClause: any = {
+              const userWhereClause: { anilistId: number | null; userId?: string } = {
                 anilistId: novelRecord.anilistId
               }
 

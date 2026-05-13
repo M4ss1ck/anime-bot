@@ -17,7 +17,7 @@ commands.command('start', async (ctx) => {
 
 commands.command('help', async (ctx) => {
     return ctx.reply(
-        `Hi, ${ctx.from!.first_name}!\n\n` +
+        `Hi, ${ctx.from?.first_name ?? 'User'}!\n\n` +
         `<b>📺 Anime Management</b>\n` +
         `<code>/save &lt;season&gt; &lt;episode&gt; &lt;name&gt;</code> - Save anime progress\n` +
         `<i>(season and episode must be numbers)</i>\n` +
@@ -47,12 +47,12 @@ commands.command('help', async (ctx) => {
 
 commands.command(['myanime', 'myanimes'], async (ctx) => {
     try {
-        const query = ctx.message!.text.replace(/^\/myanime(s)?((@\w+)?\s+)?/i, "")
+        const query = (ctx.msg?.text ?? '').replace(/^\/myanime(s)?((@\w+)?\s+)?/i, "")
         let animes: Anime[] = []
         if (query.length > 0) {
             animes = await prisma.anime.findMany({
                 where: {
-                    userId: ctx.from!.id.toString(),
+                    userId: (ctx.from?.id?.toString() ?? ''),
                     name: {
                         contains: query
                     },
@@ -69,7 +69,7 @@ commands.command(['myanime', 'myanimes'], async (ctx) => {
         } else {
             animes = await prisma.anime.findMany({
                 where: {
-                    userId: ctx.from!.id.toString()
+                    userId: (ctx.from?.id?.toString() ?? '')
                 },
                 take: 11,
                 orderBy: [
@@ -89,11 +89,11 @@ commands.command(['myanime', 'myanimes'], async (ctx) => {
 
             const keyboard = new InlineKeyboard()
             for (const anime of animes.slice(0, !query ? 10 : 30)) {
-                keyboard.text(`"${anime.name}"`, `animeInfo_${anime.id}_${ctx.from!.id.toString()}`).row()
+                keyboard.text(`"${anime.name}"`, `animeInfo_${anime.id}_${(ctx.from?.id?.toString() ?? '')}`).row()
             }
-            keyboard.text('⏭', `myanime_2_${ctx.from!.id.toString()}`).row()
-            keyboard.text('📋 Full List 📋', `myanime_1_${ctx.from!.id.toString()}`).row()
-            keyboard.text('💾 Export .txt 💾', `txt_${ctx.from!.id.toString()}`)
+            keyboard.text('⏭', `myanime_2_${(ctx.from?.id?.toString() ?? '')}`).row()
+            keyboard.text('📋 Full List 📋', `myanime_1_${(ctx.from?.id?.toString() ?? '')}`).row()
+            keyboard.text('💾 Export .txt 💾', `txt_${(ctx.from?.id?.toString() ?? '')}`)
 
             return ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard }).catch(logger.error)
         }
@@ -108,7 +108,7 @@ commands.command(['myanime', 'myanimes'], async (ctx) => {
 commands.command(['onair', 'airing', 't'], async (ctx) => {
     const animes = await prisma.anime.findMany({
         where: {
-            userId: ctx.from!.id.toString(),
+            userId: (ctx.from?.id?.toString() ?? ''),
             onAir: true
         },
         take: 11,
@@ -128,9 +128,9 @@ commands.command(['onair', 'airing', 't'], async (ctx) => {
 
         const keyboard = new InlineKeyboard()
         for (const anime of animes.slice(0, 10)) {
-            keyboard.text(`"${anime.name}"`, `animeInfo_${anime.id}_${ctx.from!.id.toString()}_airing`).row()
+            keyboard.text(`"${anime.name}"`, `animeInfo_${anime.id}_${(ctx.from?.id?.toString() ?? '')}_airing`).row()
         }
-        keyboard.text('⏭', `airing_2_${ctx.from!.id.toString()}`)
+        keyboard.text('⏭', `airing_2_${(ctx.from?.id?.toString() ?? '')}`)
 
         return ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard }).catch(logger.error)
     }
@@ -141,21 +141,21 @@ commands.command(['onair', 'airing', 't'], async (ctx) => {
 
 commands.command('save', async (ctx) => {
     const regex = /^\/save (\d+) (\d+) (.+)([\r\n\u0085\u2028\u2029]+(.+)?)?/i
-    if (regex.test(ctx.message!.text)) {
+    if (regex.test(ctx.msg?.text ?? '')) {
         try {
-            const matches = ctx.message!.text.match(regex)
+            const matches = (ctx.msg?.text ?? '').match(regex)
             if (matches) {
                 const season = matches[1]
                 const episode = matches[2]
                 const name = matches[3]
-                const note = ctx.message!.text.replace(/^\/save (\d+) (\d+) (.+)([\r\n\u0085\u2028\u2029]+)?/i, '')
+                const note = (ctx.msg?.text ?? '').replace(/^\/save (\d+) (\d+) (.+)([\r\n\u0085\u2028\u2029]+)?/i, '')
 
                 await prisma.anime
                     .upsert({
                         where: {
                             name_userId: {
                                 name: name.trim(),
-                                userId: ctx.from!.id.toString()
+                                userId: (ctx.from?.id?.toString() ?? '')
                             }
                         },
                         create: {
@@ -166,10 +166,10 @@ commands.command('save', async (ctx) => {
                             user: {
                                 connectOrCreate: {
                                     where: {
-                                        id: ctx.from!.id.toString(),
+                                        id: (ctx.from?.id?.toString() ?? ''),
                                     },
                                     create: {
-                                        id: ctx.from!.id.toString(),
+                                        id: (ctx.from?.id?.toString() ?? ''),
                                     }
                                 }
                             }
@@ -194,13 +194,14 @@ commands.command('save', async (ctx) => {
 })
 
 commands.command('import', async (ctx) => {
+    const reply = ctx.msg?.reply_to_message
+    const doc = reply && 'document' in reply ? reply.document : undefined
     if (
-        ctx.message!.reply_to_message
-        && 'document' in ctx.message!.reply_to_message
-        && ctx.message!.reply_to_message.document!.mime_type === 'text/plain'
+        doc
+        && doc.mime_type === 'text/plain'
     ) {
         try {
-            const fileId = ctx.message!.reply_to_message.document!.file_id
+            const fileId = doc.file_id
             const file = await ctx.api.getFile(fileId)
             const href = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`
             const { data } = await axios(href)
@@ -223,7 +224,7 @@ commands.command('import', async (ctx) => {
                         where: {
                             name_userId: {
                                 name: name,
-                                userId: ctx.from!.id.toString()
+                                userId: (ctx.from?.id?.toString() ?? '')
                             }
                         },
                         create: {
@@ -234,10 +235,10 @@ commands.command('import', async (ctx) => {
                             user: {
                                 connectOrCreate: {
                                     where: {
-                                        id: ctx.from!.id.toString(),
+                                        id: (ctx.from?.id?.toString() ?? ''),
                                     },
                                     create: {
-                                        id: ctx.from!.id.toString(),
+                                        id: (ctx.from?.id?.toString() ?? ''),
                                     }
                                 }
                             }

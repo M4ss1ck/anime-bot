@@ -112,9 +112,9 @@ composer.command('notify', async (ctx) => {
     }
 
     const groupId = ctx.chat.id.toString(); // Use string for Prisma ID
-    const userId = ctx.from!.id;
+    const userId = ctx.from?.id ?? 0;
     const userIdStr = userId.toString();
-    const userName = ctx.from!.first_name;
+    const userName = ctx.from?.first_name ?? '';
 
     try {
         // Ensure the user exists in the DB first
@@ -196,9 +196,9 @@ composer.command('opt_in', async (ctx) => {
     }
 
     const groupId = ctx.chat.id.toString();
-    const userId = ctx.from!.id;
+    const userId = ctx.from?.id ?? 0;
     const userIdStr = userId.toString();
-    const userName = ctx.from!.first_name;
+    const userName = ctx.from?.first_name ?? '';
 
     try {
         // Ensure the user exists in the DB first
@@ -249,7 +249,7 @@ composer.command('notify_on', async (ctx) => {
     }
 
     const groupId = ctx.chat.id.toString();
-    const messageText = ctx.message!.text;
+    const messageText = ctx.msg?.text ?? '';
     const requestedDay = messageText.split(' ')[1]?.toLowerCase();
 
     if (!requestedDay) {
@@ -375,9 +375,10 @@ export async function sendDailySummaries(api: Api) {
                 try {
                     await api.sendMessage(groupId, message);
                     logger.info(`Sent daily summary to group ${groupId} (${uniqueAnime.length} unique items).`);
-                } catch (error: any) {
-                    logger.error(`Failed to send summary to group ${groupId}: ${error.message || error}`);
-                    if (error.response?.error_code === 403 || error.message?.includes('chat not found') || error.message?.includes('bot was kicked')) {
+                } catch (error) {
+                    const err = error as { message?: string; response?: { error_code?: number } }
+                    logger.error(`Failed to send summary to group ${groupId}: ${err.message || error}`);
+                    if (err.response?.error_code === 403 || err.message?.includes('chat not found') || err.message?.includes('bot was kicked')) {
                         logger.warn(`Bot might be blocked or kicked from group ${groupId}. Removing group from notifications.`);
                         try {
                             await prisma.notificationGroup.delete({ where: { id: groupDbId } });
@@ -386,7 +387,7 @@ export async function sendDailySummaries(api: Api) {
                             logger.error(`Failed to remove inactive group ${groupId} (DB ID: ${groupDbId}) from notifications:`, removeError);
                         }
                     }
-                    else if (error.response?.error_code === 429) {
+                    else if (err.response?.error_code === 429) {
                         logger.warn(`Rate limited while sending to group ${groupId}. Retrying or delaying might be needed.`);
                     }
                 }

@@ -10,7 +10,7 @@ const rateLimit = new Map<string, number>()
 const RATE_LIMIT_WINDOW = 15 * 60 * 1000 // 15 minutes
 
 export const handleCheck = async (ctx: Context) => {
-  const userId = ctx.from!.id.toString()
+  const userId = ctx.from?.id?.toString() ?? ''
   const now = Date.now()
 
   if (rateLimit.has(userId)) {

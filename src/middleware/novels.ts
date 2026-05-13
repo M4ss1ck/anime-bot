@@ -11,7 +11,7 @@ const btn = (text: string, callback_data: string) => ({ text, callback_data })
 const novel = new Composer()
 
 novel.command('novel', async (ctx) => {
-    const search = ctx.message!.text.replace(/^\/novel((@\w+)?\s+)?/i, '')
+    const search = (ctx.msg?.text ?? '').replace(/^\/novel((@\w+)?\s+)?/i, '')
     if (search.length > 2) {
         // buscar en AniList
         try {
@@ -112,7 +112,7 @@ Genres: ${media.genres ? media.genres.join(', ') : 'n/a'}\nVolumes: ${media.volu
 novel.command(['mynovel', 'mynovels'], async (ctx) => {
     const novels = await prisma.novel.findMany({
         where: {
-            userId: ctx.from!.id.toString()
+            userId: ctx.from?.id?.toString() ?? ''
         },
         take: 11,
         orderBy: [
@@ -129,14 +129,14 @@ novel.command(['mynovel', 'mynovels'], async (ctx) => {
 
         const text = `<b>Novels stored for you:</b>\n\n${novelList}`
 
-        const buttons = novels.slice(0, 10).map(novels => [btn(`"${novels.name}"`, `novelInfo_${novels.id}_${ctx.from!.id.toString()}`)])
+        const buttons = novels.slice(0, 10).map(novels => [btn(`"${novels.name}"`, `novelInfo_${novels.id}_${ctx.from?.id?.toString() ?? ''}`)])
 
         buttons.push([
-            btn('⏭', `mynovel_2_${ctx.from!.id.toString()}`)
+            btn('⏭', `mynovel_2_${ctx.from?.id?.toString() ?? ''}`)
         ])
 
         buttons.push([
-            btn('💾 Export .txt 💾', `ntxt_${ctx.from!.id.toString()}`),
+            btn('💾 Export .txt 💾', `ntxt_${ctx.from?.id?.toString() ?? ''}`),
         ])
 
         const keyboard = InlineKeyboard.from(buttons)
@@ -151,7 +151,7 @@ novel.command(['mynovel', 'mynovels'], async (ctx) => {
 novel.command(['releasing', 'r'], async (ctx) => {
     const novels = await prisma.novel.findMany({
         where: {
-            userId: ctx.from!.id.toString(),
+            userId: ctx.from?.id?.toString() ?? '',
             releasing: true
         },
         take: 11,
@@ -169,10 +169,10 @@ novel.command(['releasing', 'r'], async (ctx) => {
 
         const text = `<b>Novels marked as 'RELEASING' stored for you:</b>\n\n${novelList}`
 
-        const buttons = novels.slice(0, 10).map(novel => [btn(`"${novel.name}"`, `novelInfo_${novel.id}_${ctx.from!.id.toString()}_rel`)])
+        const buttons = novels.slice(0, 10).map(novel => [btn(`"${novel.name}"`, `novelInfo_${novel.id}_${ctx.from?.id?.toString() ?? ''}_rel`)])
 
         buttons.push([
-            btn('⏭', `releasing_2_${ctx.from!.id.toString()}`)
+            btn('⏭', `releasing_2_${ctx.from?.id?.toString() ?? ''}`)
         ])
 
         const keyboard = InlineKeyboard.from(buttons)
@@ -186,22 +186,22 @@ novel.command(['releasing', 'r'], async (ctx) => {
 
 novel.command('nsave', async ctx => {
     const regex = /^\/nsave (part\d+\s)?(vol\d+\s)?(ch\d+\s)?(.+)([\r\n\u0085\u2028\u2029]+(.+)?)?/i
-    if (regex.test(ctx.message!.text)) {
+    if (regex.test(ctx.msg?.text ?? '')) {
         try {
-            const match = ctx.message!.text.match(regex)
+            const match = (ctx.msg?.text ?? '').match(regex)
             if (match) {
                 const partValue = match[1] ? match[1].trim().replace('part', '') : null;
                 const volValue = match[2] ? match[2].trim().replace('vol', '') : null;
                 const chValue = match[3] ? match[3].trim().replace('ch', '') : null;
                 const name = match[4] ? match[4].trim() : null
-                const note = ctx.message!.text.replace(/^\/nsave (part\d+\s)?(vol\d+\s)?(ch\d+\s)?(.+)([\r\n\u0085\u2028\u2029]+)?/i, '')
+                const note = (ctx.msg?.text ?? '').replace(/^\/nsave (part\d+\s)?(vol\d+\s)?(ch\d+\s)?(.+)([\r\n\u0085\u2028\u2029]+)?/i, '')
                 if (name) {
                     await prisma.novel
                         .upsert({
                             where: {
                                 name_userId: {
                                     name: name,
-                                    userId: ctx.from!.id.toString()
+                                    userId: ctx.from?.id?.toString() ?? ''
                                 }
                             },
                             create: {
@@ -213,10 +213,10 @@ novel.command('nsave', async ctx => {
                                 user: {
                                     connectOrCreate: {
                                         where: {
-                                            id: ctx.from!.id.toString(),
+                                            id: ctx.from?.id?.toString() ?? '',
                                         },
                                         create: {
-                                            id: ctx.from!.id.toString(),
+                                            id: ctx.from?.id?.toString() ?? '',
                                         }
                                     }
                                 }
