@@ -10,7 +10,7 @@ import { getBestDetails, getDetailsByProvider, searchDetails, summarizeDetails, 
 
 const actions = new Composer()
 
-const btn = (text: string, callback_data: string) => ({ text, callback_data })
+const btn = (text: string, callback_data: string, style?: 'primary' | 'danger' | 'success') => ({ text, callback_data, style })
 
 actions.callbackQuery(/animeInfo_\d+_\d+(_\w+)?/i, async (ctx) => {
     if ('data' in ctx.callbackQuery) {
@@ -36,22 +36,22 @@ actions.callbackQuery(/animeInfo_\d+_\d+(_\w+)?/i, async (ctx) => {
 
                 buttons.push([
                     btn('Season', `seasonAlert`),
-                    btn('➖', `seasonMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`),
-                    btn('➕', `seasonPlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`)
+                    btn('➖', `seasonMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`, 'danger'),
+                    btn('➕', `seasonPlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`, 'success')
                 ])
                 buttons.push([
                     btn('Episode', `episodeAlert`),
-                    btn('➖', `episodeMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`),
-                    btn('➕', `episodePlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`)
+                    btn('➖', `episodeMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`, 'danger'),
+                    btn('➕', `episodePlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`, 'success')
                 ])
                 buttons.push([
                     btn(`On Air: ${anime && anime.onAir ? '✅' : '❌'}`, `toggleOnAir_${animeId}_${userId}_${anime && anime.onAir ? 'off' : 'on'}${onlyAiring ? '_airing' : ''}`)
                 ])
                 buttons.push([
-                    btn('Fetch details', `adf_${animeId}_${userId}`)
+                    btn('Fetch details', `adf_${animeId}_${userId}`, 'primary')
                 ])
                 buttons.push([
-                    btn(`🗑 DELETE 🗑`, `deleteAnime_${animeId}_${userId}`)
+                    btn(`🗑 DELETE 🗑`, `deleteAnime_${animeId}_${userId}`, 'danger')
                 ])
                 if (onlyAiring) {
                     buttons.push([
@@ -106,22 +106,22 @@ actions.callbackQuery(/(season|episode)(Minus|Plus)_\d+_\d+(_\w+)?/i, async (ctx
 
                 buttons.push([
                     btn('Season', `seasonAlert`),
-                    btn('➖', `seasonMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`),
-                    btn('➕', `seasonPlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`)
+                    btn('➖', `seasonMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`, 'danger'),
+                    btn('➕', `seasonPlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`, 'success')
                 ])
                 buttons.push([
                     btn('Episode', `episodeAlert`),
-                    btn('➖', `episodeMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`),
-                    btn('➕', `episodePlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`)
+                    btn('➖', `episodeMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`, 'danger'),
+                    btn('➕', `episodePlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`, 'success')
                 ])
                 buttons.push([
                     btn(`On Air: ${anime.onAir ? '✅' : '❌'}`, `toggleOnAir_${animeId}_${userId}_${anime.onAir ? 'off' : 'on'}${onlyAiring ? '_airing' : ''}`)
                 ])
                 buttons.push([
-                    btn('Fetch details', `adf_${animeId}_${userId}`)
+                    btn('Fetch details', `adf_${animeId}_${userId}`, 'primary')
                 ])
                 buttons.push([
-                    btn(`🗑 DELETE 🗑`, `deleteAnime_${animeId}_${userId}`)
+                    btn(`🗑 DELETE 🗑`, `deleteAnime_${animeId}_${userId}`, 'danger')
                 ])
                 if (onlyAiring) {
                     buttons.push([
@@ -175,22 +175,22 @@ actions.callbackQuery(/toggleOnAir_\d+_\d+_(on|off)(_\w+)?/i, async (ctx) => {
 
                 buttons.push([
                     btn('Season', `seasonAlert`),
-                    btn('➖', `seasonMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`),
-                    btn('➕', `seasonPlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`)
+                    btn('➖', `seasonMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`, 'danger'),
+                    btn('➕', `seasonPlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`, 'success')
                 ])
                 buttons.push([
                     btn('Episode', `episodeAlert`),
-                    btn('➖', `episodeMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`),
-                    btn('➕', `episodePlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`)
+                    btn('➖', `episodeMinus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`, 'danger'),
+                    btn('➕', `episodePlus_${animeId}_${userId}${onlyAiring ? '_airing' : ''}`, 'success')
                 ])
                 buttons.push([
                     btn(`On Air: ${anime.onAir ? '✅' : '❌'}`, `toggleOnAir_${animeId}_${userId}_${anime.onAir ? 'off' : 'on'}${onlyAiring ? '_airing' : ''}`)
                 ])
                 buttons.push([
-                    btn('Fetch details', `adf_${animeId}_${userId}`)
+                    btn('Fetch details', `adf_${animeId}_${userId}`, 'primary')
                 ])
                 buttons.push([
-                    btn(`🗑 DELETE 🗑`, `deleteAnime_${animeId}_${userId}`)
+                    btn(`🗑 DELETE 🗑`, `deleteAnime_${animeId}_${userId}`, 'danger')
                 ])
                 if (onlyAiring) {
                     buttons.push([
@@ -284,7 +284,7 @@ actions.callbackQuery(/myanime_\d+_\d+/i, async (ctx) => {
             if (animes.length > 10)
                 keyboard.text('⏭', `myanime_${parseInt(page) + 1}_${userId}`)
             keyboard.row()
-            keyboard.text('💾 Export .txt 💾', `txt_${userId}`)
+            keyboard.text('💾 Export .txt 💾', `txt_${userId}`).primary()
 
             return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard })
         }
@@ -389,7 +389,7 @@ actions.callbackQuery(/Local_\d+_\d+_.+/i, async (ctx) => {
             if (animes.length > 10)
                 keyboard.text('⏭', `myanime_${parseInt(page) + 1}_${userId}`)
             keyboard.row()
-            keyboard.text('💾 Export .txt 💾', `txt_${userId}`)
+            keyboard.text('💾 Export .txt 💾', `txt_${userId}`).primary()
 
             return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard })
         }

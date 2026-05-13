@@ -18,7 +18,7 @@ import {
 } from './novel-search-results.js'
 import type { DetailProviderId } from '../details-service/types.js'
 
-const btn = (text: string, callback_data: string) => ({ text, callback_data })
+const btn = (text: string, callback_data: string, style?: 'primary' | 'danger' | 'success') => ({ text, callback_data, style })
 
 const novel = new Composer()
 
@@ -142,7 +142,7 @@ novel.command(['mynovel', 'mynovels'], async (ctx) => {
         ])
 
         buttons.push([
-            btn('💾 Export .txt 💾', `ntxt_${ctx.from?.id?.toString() ?? ''}`),
+            btn('💾 Export .txt 💾', `ntxt_${ctx.from?.id?.toString() ?? ''}`, 'primary'),
         ])
 
         const keyboard = InlineKeyboard.from(buttons)
@@ -272,32 +272,32 @@ novel.callbackQuery(/novelInfo_\d+_\d+(_\w+)?/i, async ctx => {
                 if (novel.part)
                     buttons.push([
                         btn('Part', `partAlert`),
-                        btn('➖', `partMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
-                        btn('➕', `partPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
+                        btn('➖', `partMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`, 'danger'),
+                        btn('➕', `partPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`, 'success')
                     ])
 
                 if (novel.volume)
                     buttons.push([
                         btn('Volume', `volumeAlert`),
-                        btn('➖', `volMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
-                        btn('➕', `volPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
+                        btn('➖', `volMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`, 'danger'),
+                        btn('➕', `volPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`, 'success')
                     ])
 
                 if (novel.chapter)
                     buttons.push([
                         btn('Chapter', `chapterAlert`),
-                        btn('➖', `chMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
-                        btn('➕', `chPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
+                        btn('➖', `chMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`, 'danger'),
+                        btn('➕', `chPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`, 'success')
                     ])
 
                 buttons.push([
                     btn(`RELEASING: ${novel && novel.releasing ? '✅' : '❌'}`, `toggleReleasing_${novelId}_${userId}_${novel && novel.releasing ? 'off' : 'on'}${releasing ? '_rel' : ''}`)
                 ])
                 buttons.push([
-                    btn('Fetch details', `ndf_${novelId}_${userId}`)
+                    btn('Fetch details', `ndf_${novelId}_${userId}`, 'primary')
                 ])
                 buttons.push([
-                    btn(`🗑 DELETE 🗑`, `deleteNovel_${novelId}_${userId}`)
+                    btn(`🗑 DELETE 🗑`, `deleteNovel_${novelId}_${userId}`, 'danger')
                 ])
                 if (releasing) {
                     buttons.push([
@@ -372,32 +372,32 @@ novel.callbackQuery(/(part|vol|ch)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
                 if (novel.part)
                     buttons.push([
                         btn('Part', `partAlert`),
-                        btn('➖', `partMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
-                        btn('➕', `partPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
+                        btn('➖', `partMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`, 'danger'),
+                        btn('➕', `partPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`, 'success')
                     ])
 
                 if (novel.volume)
                     buttons.push([
                         btn('Volume', `volumeAlert`),
-                        btn('➖', `volMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
-                        btn('➕', `volPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
+                        btn('➖', `volMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`, 'danger'),
+                        btn('➕', `volPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`, 'success')
                     ])
 
                 if (novel.chapter)
                     buttons.push([
                         btn('Chapter', `chapterAlert`),
-                        btn('➖', `chMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
-                        btn('➕', `chPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
+                        btn('➖', `chMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`, 'danger'),
+                        btn('➕', `chPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`, 'success')
                     ])
 
                 buttons.push([
                     btn(`RELEASING: ${novel && novel.releasing ? '✅' : '❌'}`, `toggleReleasing_${novelId}_${userId}_${novel && novel.releasing ? 'off' : 'on'}${releasing ? '_rel' : ''}`)
                 ])
                 buttons.push([
-                    btn('Fetch details', `ndf_${novelId}_${userId}`)
+                    btn('Fetch details', `ndf_${novelId}_${userId}`, 'primary')
                 ])
                 buttons.push([
-                    btn(`🗑 DELETE 🗑`, `deleteNovel_${novelId}_${userId}`)
+                    btn(`🗑 DELETE 🗑`, `deleteNovel_${novelId}_${userId}`, 'danger')
                 ])
                 if (releasing) {
                     buttons.push([
@@ -472,32 +472,32 @@ novel.callbackQuery(/toggleReleasing_\d+_\d+_(on|off)(_\w+)?/i, async ctx => {
                 if (novel.part)
                     buttons.push([
                         btn('Part', `partAlert`),
-                        btn('➖', `partMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
-                        btn('➕', `partPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
+                        btn('➖', `partMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`, 'danger'),
+                        btn('➕', `partPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`, 'success')
                     ])
 
                 if (novel.volume)
                     buttons.push([
                         btn('Volume', `volumeAlert`),
-                        btn('➖', `volMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
-                        btn('➕', `volPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
+                        btn('➖', `volMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`, 'danger'),
+                        btn('➕', `volPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`, 'success')
                     ])
 
                 if (novel.chapter)
                     buttons.push([
                         btn('Chapter', `chapterAlert`),
-                        btn('➖', `chMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`),
-                        btn('➕', `chPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`)
+                        btn('➖', `chMinus_${novelId}_${userId}${releasing ? '_airing' : ''}`, 'danger'),
+                        btn('➕', `chPlus_${novelId}_${userId}${releasing ? '_airing' : ''}`, 'success')
                     ])
 
                 buttons.push([
                     btn(`RELEASING: ${novel && novel.releasing ? '✅' : '❌'}`, `toggleReleasing_${novelId}_${userId}_${novel && novel.releasing ? 'off' : 'on'}${releasing ? '_rel' : ''}`)
                 ])
                 buttons.push([
-                    btn('Fetch details', `ndf_${novelId}_${userId}`)
+                    btn('Fetch details', `ndf_${novelId}_${userId}`, 'primary')
                 ])
                 buttons.push([
-                    btn(`🗑 DELETE 🗑`, `deleteNovel_${novelId}_${userId}`)
+                    btn(`🗑 DELETE 🗑`, `deleteNovel_${novelId}_${userId}`, 'danger')
                 ])
                 if (releasing) {
                     buttons.push([
@@ -610,7 +610,7 @@ novel.callbackQuery(/mynovel_\d+_\d+/i, async ctx => {
             if (navRow.length > 0) buttons.push(navRow)
 
             buttons.push([
-                btn('💾 Export .txt 💾', `ntxt_${userId}`),
+                btn('💾 Export .txt 💾', `ntxt_${userId}`, 'primary'),
             ])
 
             const keyboard = InlineKeyboard.from(buttons)
