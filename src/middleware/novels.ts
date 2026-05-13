@@ -26,7 +26,7 @@ novel.command('novel', async (ctx) => {
     const search = (ctx.msg?.text ?? '').replace(/^\/novel((@\w+)?\s+)?/i, '')
     if (search.length > 2) {
         try {
-            const results = await searchDetails('reading', search, 8)
+            const results = await searchDetails('reading', search, 5)
             const buttons = results
                 .map(buildReadingResultButton)
                 .filter((button): button is { text: string, callback_data: string } => Boolean(button))

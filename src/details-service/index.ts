@@ -2,7 +2,6 @@ import { anilistProvider } from './providers/anilist.js'
 import { googleBooksProvider } from './providers/google-books.js'
 import { hardcoverProvider } from './providers/hardcover.js'
 import { kitsuProvider } from './providers/kitsu.js'
-import { openLibraryProvider } from './providers/open-library.js'
 import type {
     AnimeDetailUpdate,
     DetailKind,
@@ -18,7 +17,6 @@ export const detailProviders: MediaDetailsProvider[] = [
     anilistProvider,
     kitsuProvider,
     googleBooksProvider,
-    openLibraryProvider,
     hardcoverProvider,
 ]
 
