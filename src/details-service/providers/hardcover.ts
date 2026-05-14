@@ -6,8 +6,11 @@ const HARDCOVER_URL = 'https://api.hardcover.app/v1/graphql'
 type HardcoverBook = {
     id: number
     title?: string | null
+    headline?: string | null
     description?: string | null
     release_date?: string | null
+    links?: string[] | null
+    pages?: number | null
     image?: {
         url?: string | null
     } | null
@@ -18,10 +21,15 @@ type HardcoverBook = {
     }[] | null
 }
 
+type HardcoverBookSeries = {
+    book?: HardcoverBook | null
+}
+
 type HardcoverResponse = {
     data?: {
         books?: HardcoverBook[]
         books_by_pk?: HardcoverBook | null
+        book_series?: HardcoverBookSeries[]
     }
 }
 
@@ -49,7 +57,6 @@ function mapBook(book: HardcoverBook): MediaDetails {
         releaseYear: year ? Number(year) : undefined,
         authors: authors && authors.length > 0 ? [...new Set(authors)] : undefined,
         coverImageUrl: book.image?.url ?? undefined,
-        detailsUrl: `https://hardcover.app/books/${book.id}`,
     }
 }
 
@@ -79,19 +86,27 @@ export const hardcoverProvider: MediaDetailsProvider = {
     async search(input: DetailSearchInput) {
         if (input.kind !== 'reading' || !isEnabled()) return []
 
+        const seriesName = input.query.trim()
+        if (!seriesName) return []
+
         const query = `
             query SearchBooks($query: String!, $limit: Int!) {
-                books(where: {title: {_ilike: $query}}, limit: $limit) {
-                    id
-                    title
-                    description
-                    release_date
-                    image {
-                        url
-                    }
-                    contributions {
-                        author {
-                            name
+                book_series(limit: $limit, where: {series: {name: {_eq: $query}}}) {
+                    book {
+                        id
+                        title
+                        headline
+                        description
+                        release_date
+                        links
+                        pages
+                        image {
+                            url
+                        }
+                        contributions {
+                            author {
+                                name
+                            }
                         }
                     }
                 }
@@ -99,11 +114,14 @@ export const hardcoverProvider: MediaDetailsProvider = {
         `
 
         const data = await queryHardcover<HardcoverResponse>(query, {
-            query: `%${input.query}%`,
+            query: seriesName,
             limit: input.limit ?? 5,
         })
 
-        return data?.data?.books?.map(mapBook) ?? []
+        return data?.data?.book_series
+            ?.map(seriesBook => seriesBook.book)
+            .filter((book): book is HardcoverBook => Boolean(book))
+            .map(mapBook) ?? []
     },
     async getById(input: DetailIdInput) {
         if (input.kind !== 'reading' || !isEnabled()) return null
