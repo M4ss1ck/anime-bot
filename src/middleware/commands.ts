@@ -93,7 +93,7 @@ commands.command(['myanime', 'myanimes'], async (ctx) => {
             }
             keyboard.text('⏭', `myanime_2_${(ctx.from?.id?.toString() ?? '')}`).row()
             keyboard.text('📋 Full List 📋', `myanime_1_${(ctx.from?.id?.toString() ?? '')}`).row()
-            keyboard.text('💾 Export .txt 💾', `txt_${(ctx.from?.id?.toString() ?? '')}`)
+            keyboard.text('💾 Export .txt 💾', `txt_${(ctx.from?.id?.toString() ?? '')}`).primary()
 
             return ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard }).catch(logger.error)
         }
