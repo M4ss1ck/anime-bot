@@ -28,18 +28,14 @@ export const handleCheck = async (ctx: Context) => {
   try {
     // Run checks for this user
     // We can run them in parallel
-    await Promise.all([
+    const [, , newVolumes] = await Promise.all([
       checkNewSeasons(ctx.api, undefined, userId),
       checkNewNovelReleases(ctx.api, undefined, userId),
       checkNewVolumes(ctx.api, undefined, userId)
     ])
 
-    // Note: The check functions send notifications directly if updates are found.
-    // We could modify them to return a count, but for now, let's just confirm completion.
-    // Since we don't know if notifications were sent (without refactoring return values),
-    // we can just say "Check complete."
-
-    await ctx.reply('Check complete. If any updates were found, you should have received a notification.')
+    // The season/novel checks still notify directly without reporting a count.
+    await ctx.reply(`Check complete. ${newVolumes > 0 ? `Found ${newVolumes} new volume(s).` : 'No new volumes for your series.'} Any other update was sent as a separate notification.`)
 
   } catch (error) {
     logger.error(`Error in /check command for user ${userId}: ${error}`)

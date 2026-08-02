@@ -122,7 +122,7 @@ export const runScheduled = async (bot: Bot) => {
             () => {
                 checkNewSeasons(bot.api)
                 checkNewNovelReleases(bot.api)
-                checkNewVolumes(bot.api)
+                checkNewVolumes(bot.api).catch(error => logger.error(`Error checking new volumes: ${error}`))
             },
             'New Season/Novel Check'
         );
