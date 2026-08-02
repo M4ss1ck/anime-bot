@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { logger } from '../../logger/index.js'
 import type { DetailIdInput, DetailSearchInput, MediaDetails, MediaDetailsProvider } from '../types.js'
 
 const HARDCOVER_URL = 'https://api.hardcover.app/v1/graphql'
@@ -6,11 +7,7 @@ const HARDCOVER_URL = 'https://api.hardcover.app/v1/graphql'
 type HardcoverBook = {
     id: number
     title?: string | null
-    headline?: string | null
-    description?: string | null
     release_date?: string | null
-    links?: string[] | null
-    pages?: number | null
     image?: {
         url?: string | null
     } | null
@@ -21,16 +18,45 @@ type HardcoverBook = {
     }[] | null
 }
 
-type HardcoverBookSeries = {
-    book?: HardcoverBook | null
+type HardcoverSeries = {
+    id: number
+    name?: string | null
+    slug?: string | null
+    description?: string | null
+    books_count?: number | null
+    primary_books_count?: number | null
+    is_completed?: boolean | null
+    author?: {
+        name?: string | null
+    } | null
+    book_series?: {
+        position?: number | null
+        book?: HardcoverBook | null
+    }[] | null
+}
+
+type HardcoverSeriesDocument = {
+    id?: string | number | null
+    name?: string | null
+    slug?: string | null
+    author_name?: string | null
+    books_count?: number | null
+    primary_books_count?: number | null
 }
 
 type HardcoverResponse = {
     data?: {
-        books?: HardcoverBook[]
-        books_by_pk?: HardcoverBook | null
-        book_series?: HardcoverBookSeries[]
+        series_by_pk?: HardcoverSeries | null
+        search?: {
+            error?: string | null
+            results?: {
+                hits?: {
+                    document?: HardcoverSeriesDocument | null
+                }[] | null
+            } | null
+        } | null
     }
+    errors?: { message?: string }[]
 }
 
 function token() {
@@ -41,30 +67,64 @@ function isEnabled() {
     return Boolean(token())
 }
 
-function mapBook(book: HardcoverBook): MediaDetails {
-    const year = book.release_date?.match(/\d{4}/)?.[0]
-    const authors = book.contributions
-        ?.map(contribution => contribution.author?.name)
-        .filter((name): name is string => Boolean(name))
+function seriesUrl(slug?: string | null) {
+    return slug ? `https://hardcover.app/series/${slug}` : undefined
+}
+
+function releasingStatus(isCompleted?: boolean | null) {
+    if (isCompleted === true) return 'Completed'
+    if (isCompleted === false) return 'Releasing'
+
+    return undefined
+}
+
+function mapSeriesDocument(document: HardcoverSeriesDocument): MediaDetails | null {
+    if (document.id === undefined || document.id === null) return null
 
     return {
         kind: 'reading',
         provider: 'hardcover',
         providerLabel: 'Hardcover',
-        id: String(book.id),
-        title: book.title || `Hardcover ${book.id}`,
-        description: book.description ?? undefined,
-        releaseYear: year ? Number(year) : undefined,
-        authors: authors && authors.length > 0 ? [...new Set(authors)] : undefined,
-        coverImageUrl: book.image?.url ?? undefined,
+        id: String(document.id),
+        title: document.name || `Hardcover series ${document.id}`,
+        authors: document.author_name ? [document.author_name] : undefined,
+        totalVolumes: document.primary_books_count || document.books_count || undefined,
+        detailsUrl: seriesUrl(document.slug),
     }
 }
 
-async function queryHardcover<T>(query: string, variables: Record<string, unknown>): Promise<T | null> {
+function mapSeries(series: HardcoverSeries): MediaDetails {
+    const books = series.book_series
+        ?.map(entry => entry.book)
+        .filter((book): book is HardcoverBook => Boolean(book)) ?? []
+
+    const year = books.find(book => book.release_date)?.release_date?.match(/\d{4}/)?.[0]
+    const authors = series.author?.name
+        ? [series.author.name]
+        : books.flatMap(book => book.contributions?.map(contribution => contribution.author?.name) ?? [])
+            .filter((name): name is string => Boolean(name))
+
+    return {
+        kind: 'reading',
+        provider: 'hardcover',
+        providerLabel: 'Hardcover',
+        id: String(series.id),
+        title: series.name || `Hardcover series ${series.id}`,
+        description: series.description ?? undefined,
+        releaseYear: year ? Number(year) : undefined,
+        authors: authors.length > 0 ? [...new Set(authors)] : undefined,
+        totalVolumes: series.primary_books_count || series.books_count || undefined,
+        status: releasingStatus(series.is_completed),
+        coverImageUrl: books.find(book => book.image?.url)?.image?.url ?? undefined,
+        detailsUrl: seriesUrl(series.slug),
+    }
+}
+
+async function queryHardcover(query: string, variables: Record<string, unknown>): Promise<HardcoverResponse['data'] | null> {
     const apiToken = token()
     if (!apiToken) return null
 
-    const result = await axios.post(HARDCOVER_URL, {
+    const result = await axios.post<HardcoverResponse>(HARDCOVER_URL, {
         query,
         variables,
     }, {
@@ -74,9 +134,18 @@ async function queryHardcover<T>(query: string, variables: Record<string, unknow
         },
         timeout: 5000,
         signal: AbortSignal.timeout(5000),
-    }).catch(() => null)
+    }).catch(error => {
+        logger.error(`Hardcover request failed: ${error?.response?.status ?? ''} ${JSON.stringify(error?.response?.data ?? error?.message)}`)
+        return null
+    })
 
-    return result?.data ?? null
+    const errors = result?.data?.errors
+    if (errors?.length) {
+        logger.error(`Hardcover returned errors: ${errors.map(entry => entry.message).join('; ')}`)
+        return null
+    }
+
+    return result?.data?.data ?? null
 }
 
 export const hardcoverProvider: MediaDetailsProvider = {
@@ -90,38 +159,30 @@ export const hardcoverProvider: MediaDetailsProvider = {
         if (!seriesName) return []
 
         const query = `
-            query SearchBooks($query: String!, $limit: Int!) {
-                book_series(limit: $limit, where: {series: {name: {_eq: $query}}}) {
-                    book {
-                        id
-                        title
-                        headline
-                        description
-                        release_date
-                        links
-                        pages
-                        image {
-                            url
-                        }
-                        contributions {
-                            author {
-                                name
-                            }
-                        }
-                    }
+            query SearchSeries($query: String!, $queryType: String!, $perPage: Int!) {
+                search(query: $query, query_type: $queryType, per_page: $perPage, page: 1) {
+                    error
+                    results
                 }
             }
         `
 
-        const data = await queryHardcover<HardcoverResponse>(query, {
+        const data = await queryHardcover(query, {
             query: seriesName,
-            limit: input.limit ?? 5,
+            queryType: 'Series',
+            perPage: input.limit ?? 5,
         })
 
-        return data?.data?.book_series
-            ?.map(seriesBook => seriesBook.book)
-            .filter((book): book is HardcoverBook => Boolean(book))
-            .map(mapBook) ?? []
+        if (data?.search?.error) {
+            logger.error(`Hardcover search error: ${data.search.error}`)
+            return []
+        }
+
+        return data?.search?.results?.hits
+            ?.map(hit => hit.document)
+            .filter((document): document is HardcoverSeriesDocument => Boolean(document))
+            .map(mapSeriesDocument)
+            .filter((details): details is MediaDetails => Boolean(details)) ?? []
     },
     async getById(input: DetailIdInput) {
         if (input.kind !== 'reading' || !isEnabled()) return null
@@ -130,25 +191,39 @@ export const hardcoverProvider: MediaDetailsProvider = {
         if (!Number.isInteger(id)) return null
 
         const query = `
-            query BookById($id: Int!) {
-                books_by_pk(id: $id) {
+            query SeriesById($id: Int!) {
+                series_by_pk(id: $id) {
                     id
-                    title
+                    name
+                    slug
                     description
-                    release_date
-                    image {
-                        url
+                    books_count
+                    primary_books_count
+                    is_completed
+                    author {
+                        name
                     }
-                    contributions {
-                        author {
-                            name
+                    book_series(order_by: {position: asc}) {
+                        position
+                        book {
+                            id
+                            title
+                            release_date
+                            image {
+                                url
+                            }
+                            contributions {
+                                author {
+                                    name
+                                }
+                            }
                         }
                     }
                 }
             }
         `
 
-        const data = await queryHardcover<HardcoverResponse>(query, { id })
-        return data?.data?.books_by_pk ? mapBook(data.data.books_by_pk) : null
+        const data = await queryHardcover(query, { id })
+        return data?.series_by_pk ? mapSeries(data.series_by_pk) : null
     },
 }
