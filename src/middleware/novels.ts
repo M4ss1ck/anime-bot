@@ -4,7 +4,8 @@ import { getNovel } from '../anilist-service/index.js'
 import { prisma } from '../db/prisma.js'
 import { escapeHtml } from '../utils/index.js'
 import * as fs from 'fs/promises'
-import { getBestDetails, getDetailsByProvider, searchDetails, summarizeDetails, toReadingUpdate } from '../details-service/index.js'
+import { getBestDetails, getDetailsByProvider, getProvider, searchDetails, summarizeDetails, toReadingUpdate } from '../details-service/index.js'
+import type { Novel } from '../generated/prisma/client.js'
 import {
     buildAddReadingCallback,
     buildReadingResultButton,
@@ -326,6 +327,7 @@ novel.callbackQuery(/novelInfo_\d+_\d+(_\w+)?/i, async ctx => {
                     if (novel.note) {
                         text += `\n<b>Note:</b>\n${novel.note && novel.note.length > 0 ? escapeHtml(novel.note) : '-'}`
                     }
+                    text += savedDetailsText(novel)
                     text += `\n\n<i>To edit the values, you could use the buttons or modify the following code:</i><pre>/nsave${novel.part ? " part" + novel.part : ""}${novel.volume ? " vol" + novel.volume : ""}${novel.chapter ? " ch" + novel.chapter : ""} ${escapeHtml(novel.name)}\n${escapeHtml(novel.note || '')}</pre>`
                 } else {
                     text += '<b>Novel not found for this id</b>'
@@ -426,6 +428,7 @@ novel.callbackQuery(/(part|vol|ch)(Minus|Plus)_\d+_\d+(_\w+)?/i, async ctx => {
                     if (novel.note) {
                         text += `\n<b>Note:</b>\n${novel.note && novel.note.length > 0 ? escapeHtml(novel.note) : '-'}`
                     }
+                    text += savedDetailsText(novel)
                     text += `\n\n<i>To edit the values, you could use the buttons or modify the following code:</i><pre>/nsave${novel.part ? " part" + novel.part : ""}${novel.volume ? " vol" + novel.volume : ""}${novel.chapter ? " ch" + novel.chapter : ""} ${escapeHtml(novel.name)}\n${escapeHtml(novel.note || '')}</pre>`
                 } else {
                     text += '<b>Novel not found for this id</b>'
@@ -526,6 +529,7 @@ novel.callbackQuery(/toggleReleasing_\d+_\d+_(on|off)(_\w+)?/i, async ctx => {
                     if (novel.note) {
                         text += `\n<b>Note:</b>\n${novel.note && novel.note.length > 0 ? escapeHtml(novel.note) : '-'}`
                     }
+                    text += savedDetailsText(novel)
                     text += `\n\n<i>To edit the values, you could use the buttons or modify the following code:</i><pre>/nsave${novel.part ? " part" + novel.part : ""}${novel.volume ? " vol" + novel.volume : ""}${novel.chapter ? " ch" + novel.chapter : ""} ${escapeHtml(novel.name)}\n${escapeHtml(novel.note || '')}</pre>`
                 } else {
                     text += '<b>Novel not found for this id</b>'
@@ -787,6 +791,28 @@ novel.callbackQuery(/deleteNovel_/, async ctx => {
         logger.error(error)
     }
 })
+
+function savedDetailsText(novel: Novel) {
+    const lines = [
+        novel.status ? `Status: ${escapeHtml(novel.status)}` : null,
+        novel.totalVolumes ? `Volumes: ${novel.totalVolumes}` : null,
+        novel.totalChapters ? `Chapters: ${novel.totalChapters}` : null,
+        novel.authors ? `Authors: ${escapeHtml(novel.authors)}` : null,
+        novel.genres ? `Genres: ${escapeHtml(novel.genres)}` : null,
+        novel.detailsUrl ? escapeHtml(novel.detailsUrl) : null,
+    ].filter((line): line is string => Boolean(line))
+
+    if (novel.description) {
+        const description = novel.description.replace(/<[^>]*>/g, '').slice(0, 600)
+        lines.push('', `<i>${escapeHtml(description)}</i>`)
+    }
+
+    if (lines.length < 1) return ''
+
+    const provider = novel.detailsProvider ? getProvider(novel.detailsProvider)?.label ?? novel.detailsProvider : null
+
+    return `\n\n<b>Details${provider ? ` (${escapeHtml(provider)})` : ''}:</b>\n${lines.join('\n')}`
+}
 
 function detailButtonLabel(details: { providerLabel: string, title: string }) {
     const title = details.title.length > 32 ? `${details.title.slice(0, 29)}...` : details.title
