@@ -83,6 +83,16 @@ model NotificationGroup {
   updatedAt DateTime @updatedAt
 }
 
+model VolumeNotification {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  novelId   Int
+  volume    Float // position of the volume in the series
+  createdAt DateTime @default(now())
+
+  @@unique([userId, novelId, volume])
+}
+
 model NotificationHistory {
   id        Int      @id @default(autoincrement())
   userId    String

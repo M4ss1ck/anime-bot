@@ -5,7 +5,7 @@ import { InlineKeyboard } from "grammy"
 import { logger } from "../logger/index.js"
 import dayjs from 'dayjs'
 import { sendDailySummaries } from "../middleware/notify.js"
-import { checkNewSeasons, checkNewNovelReleases } from "../middleware/notifications.js"
+import { checkNewSeasons, checkNewNovelReleases, checkNewVolumes } from "../middleware/notifications.js"
 
 export const padTo2Digits = (num: number) => {
     return num.toString().padStart(2, '0')
@@ -122,6 +122,7 @@ export const runScheduled = async (bot: Bot) => {
             () => {
                 checkNewSeasons(bot.api)
                 checkNewNovelReleases(bot.api)
+                checkNewVolumes(bot.api)
             },
             'New Season/Novel Check'
         );

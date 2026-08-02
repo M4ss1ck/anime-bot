@@ -3,6 +3,8 @@ import { prisma } from "../db/prisma.js"
 import { getAnimeRelations, getNovelRelations } from "../anilist-service/index.js"
 import { logger } from "../logger/index.js"
 import { escapeHtml } from "../utils/index.js"
+import { getSeriesBooks } from "../details-service/providers/hardcover.js"
+import { formatNewVolumesMessage, pendingVolumes } from "./volume-releases.js"
 
 export const checkNewSeasons = async (api: Api, fetcher = getAnimeRelations, targetUserId?: string) => {
   logger.info(`Checking for new seasons... ${targetUserId ? `(Target: ${targetUserId})` : ''}`)
@@ -210,5 +212,66 @@ export const checkNewNovelReleases = async (api: Api, fetcher = getNovelRelation
     }
   } catch (error) {
     logger.error(`Error checking new novel releases: ${error}`)
+  }
+}
+
+export const checkNewVolumes = async (api: Api, fetcher = getSeriesBooks, targetUserId?: string) => {
+  logger.info(`Checking for new volumes... ${targetUserId ? `(Target: ${targetUserId})` : ''}`)
+  try {
+    // Only series with saved Hardcover details can be resolved to a book list
+    const novels = await prisma.novel.findMany({
+      where: {
+        detailsProvider: 'hardcover',
+        detailsId: { not: null },
+        volume: { not: null },
+        ...(targetUserId ? { userId: targetUserId } : {})
+      }
+    })
+
+    for (const novel of novels) {
+      if (!novel.detailsId || novel.volume === null) continue
+
+      const books = await fetcher(novel.detailsId)
+      if (books.length < 1) continue
+
+      const notified = await prisma.volumeNotification.findMany({
+        where: {
+          userId: novel.userId,
+          novelId: novel.id
+        },
+        select: {
+          volume: true
+        }
+      })
+
+      const pending = pendingVolumes(novel.volume, books, notified.map(entry => entry.volume))
+      if (pending.length < 1) continue
+
+      const message = formatNewVolumesMessage({
+        name: novel.name,
+        trackedVolume: novel.volume,
+        volumes: pending,
+        detailsUrl: novel.detailsUrl
+      })
+
+      try {
+        await api.sendMessage(novel.userId, message, {
+          parse_mode: 'HTML'
+        })
+
+        await prisma.volumeNotification.createMany({
+          data: pending.map(volume => ({
+            userId: novel.userId,
+            novelId: novel.id,
+            volume: volume.position
+          }))
+        })
+        logger.info(`Notified user ${novel.userId} about ${pending.length} new volume(s) of ${novel.name}`)
+      } catch (error) {
+        logger.error(`Failed to notify user ${novel.userId} about new volumes of ${novel.name}: ${error}`)
+      }
+    }
+  } catch (error) {
+    logger.error(`Error checking new volumes: ${error}`)
   }
 }

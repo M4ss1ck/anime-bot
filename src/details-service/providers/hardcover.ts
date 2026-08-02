@@ -59,6 +59,12 @@ type HardcoverResponse = {
     errors?: { message?: string }[]
 }
 
+export type SeriesBook = {
+    position: number
+    title?: string
+    releaseDate?: string
+}
+
 function token() {
     return process.env.HARDCOVER_API_TOKEN?.trim()
 }
@@ -146,6 +152,48 @@ async function queryHardcover(query: string, variables: Record<string, unknown>)
     }
 
     return result?.data?.data ?? null
+}
+
+export async function getSeriesBooks(seriesId: string): Promise<SeriesBook[]> {
+    if (!isEnabled()) return []
+
+    const id = Number(seriesId)
+    if (!Number.isInteger(id)) return []
+
+    const query = `
+        query SeriesBooks($id: Int!) {
+            series_by_pk(id: $id) {
+                id
+                book_series(order_by: {position: asc}) {
+                    position
+                    book {
+                        id
+                        title
+                        release_date
+                    }
+                }
+            }
+        }
+    `
+
+    const data = await queryHardcover(query, { id })
+
+    const books = (data?.series_by_pk?.book_series ?? [])
+        .filter(entry => typeof entry.position === 'number')
+        .map(entry => ({
+            position: entry.position as number,
+            title: entry.book?.title ?? undefined,
+            releaseDate: entry.book?.release_date ?? undefined,
+        }))
+        // Hardcover lists one entry per edition, so the earliest dated edition wins the position
+        .sort((a, b) => a.position - b.position || (a.releaseDate ?? '9999').localeCompare(b.releaseDate ?? '9999'))
+
+    const byPosition = new Map<number, SeriesBook>()
+    for (const book of books) {
+        if (!byPosition.has(book.position)) byPosition.set(book.position, book)
+    }
+
+    return [...byPosition.values()]
 }
 
 export const hardcoverProvider: MediaDetailsProvider = {

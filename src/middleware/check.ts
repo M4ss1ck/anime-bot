@@ -1,6 +1,6 @@
 import { Composer } from 'grammy'
 import type { Context } from 'grammy'
-import { checkNewSeasons, checkNewNovelReleases } from './notifications.js'
+import { checkNewSeasons, checkNewNovelReleases, checkNewVolumes } from './notifications.js'
 import { logger } from '../logger/index.js'
 
 const check = new Composer()
@@ -30,7 +30,8 @@ export const handleCheck = async (ctx: Context) => {
     // We can run them in parallel
     await Promise.all([
       checkNewSeasons(ctx.api, undefined, userId),
-      checkNewNovelReleases(ctx.api, undefined, userId)
+      checkNewNovelReleases(ctx.api, undefined, userId),
+      checkNewVolumes(ctx.api, undefined, userId)
     ])
 
     // Note: The check functions send notifications directly if updates are found.
