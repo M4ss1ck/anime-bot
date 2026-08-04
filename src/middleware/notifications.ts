@@ -5,6 +5,8 @@ import { logger } from "../logger/index.js"
 import { escapeHtml } from "../utils/index.js"
 import { getSeriesBooks } from "../details-service/providers/hardcover.js"
 import { formatNewVolumesMessage, pendingVolumes } from "./volume-releases.js"
+import type { PendingVolume } from "./volume-releases.js"
+import type { Novel } from "../generated/prisma/client.js"
 
 export const checkNewSeasons = async (api: Api, fetcher = getAnimeRelations, targetUserId?: string) => {
   logger.info(`Checking for new seasons... ${targetUserId ? `(Target: ${targetUserId})` : ''}`)
@@ -215,9 +217,16 @@ export const checkNewNovelReleases = async (api: Api, fetcher = getNovelRelation
   }
 }
 
-export const checkNewVolumes = async (api: Api, fetcher = getSeriesBooks, targetUserId?: string) => {
-  logger.info(`Checking for new volumes... ${targetUserId ? `(Target: ${targetUserId})` : ''}`)
+export type PendingVolumeEntry = {
+  novel: Novel
+  trackedVolume: number
+  pending: PendingVolume[]
+  notifiedPositions: number[]
+}
 
+// Reports state only: every volume above the user's read progress, regardless of what has
+// already been announced. Consumers decide whether to dedup against notifiedPositions.
+export const collectPendingVolumes = async (fetcher = getSeriesBooks, targetUserId?: string): Promise<PendingVolumeEntry[]> => {
   // Errors are not swallowed here: a broken check must reach the caller so /check
   // can report it instead of claiming success.
   // Only series with saved Hardcover details can be resolved to a book list
@@ -230,7 +239,7 @@ export const checkNewVolumes = async (api: Api, fetcher = getSeriesBooks, target
     }
   })
 
-  let notifiedCount = 0
+  const entries: PendingVolumeEntry[] = []
 
   for (const novel of novels) {
     if (!novel.detailsId || novel.volume === null) continue
@@ -251,13 +260,45 @@ export const checkNewVolumes = async (api: Api, fetcher = getSeriesBooks, target
       }
     })
 
-    const pending = pendingVolumes(novel.volume, books, notified.map(entry => entry.volume))
-    if (pending.length < 1) continue
+    entries.push({
+      novel,
+      trackedVolume: novel.volume,
+      pending: pendingVolumes(novel.volume, books, []),
+      notifiedPositions: notified.map(entry => entry.volume)
+    })
+  }
+
+  return entries
+}
+
+export const recordNotifiedVolumes = async (userId: string, novelId: number, volumes: PendingVolume[]) => {
+  if (volumes.length < 1) return
+
+  await prisma.volumeNotification.createMany({
+    data: volumes.map(volume => ({
+      userId,
+      novelId,
+      volume: volume.position
+    }))
+  })
+}
+
+export const checkNewVolumes = async (api: Api, fetcher = getSeriesBooks, targetUserId?: string) => {
+  logger.info(`Checking for new volumes... ${targetUserId ? `(Target: ${targetUserId})` : ''}`)
+
+  const entries = await collectPendingVolumes(fetcher, targetUserId)
+
+  let notifiedCount = 0
+
+  for (const { novel, trackedVolume, pending, notifiedPositions } of entries) {
+    // The scheduled push only announces each volume once.
+    const unnotified = pending.filter(volume => !notifiedPositions.includes(volume.position))
+    if (unnotified.length < 1) continue
 
     const message = formatNewVolumesMessage({
       name: novel.name,
-      trackedVolume: novel.volume,
-      volumes: pending,
+      trackedVolume,
+      volumes: unnotified,
       detailsUrl: novel.detailsUrl
     })
 
@@ -266,15 +307,9 @@ export const checkNewVolumes = async (api: Api, fetcher = getSeriesBooks, target
         parse_mode: 'HTML'
       })
 
-      await prisma.volumeNotification.createMany({
-        data: pending.map(volume => ({
-          userId: novel.userId,
-          novelId: novel.id,
-          volume: volume.position
-        }))
-      })
-      notifiedCount += pending.length
-      logger.info(`Notified user ${novel.userId} about ${pending.length} new volume(s) of ${novel.name}`)
+      await recordNotifiedVolumes(novel.userId, novel.id, unnotified)
+      notifiedCount += unnotified.length
+      logger.info(`Notified user ${novel.userId} about ${unnotified.length} new volume(s) of ${novel.name}`)
     } catch (error) {
       logger.error(`Failed to notify user ${novel.userId} about new volumes of ${novel.name}: ${error}`)
     }

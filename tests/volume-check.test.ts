@@ -3,6 +3,8 @@ import axios from 'axios'
 import { getSeriesBooks } from '../src/details-service/providers/hardcover.ts'
 import { formatNewVolumesMessage, formatVolumeReport, pendingVolumes } from '../src/middleware/volume-releases.ts'
 import type { PendingVolume } from '../src/middleware/volume-releases.ts'
+import { prisma } from '../src/db/prisma.ts'
+import { checkNewVolumes, collectPendingVolumes } from '../src/middleware/notifications.ts'
 
 const originalPost = axios.post
 const originalToken = process.env.HARDCOVER_API_TOKEN
@@ -204,5 +206,163 @@ describe('formatVolumeReport', () => {
         expect(messages[0]).toContain('<b>Chrysalis</b>')
         expect(messages[1]).toContain('<b>Ranking of Kings</b>')
         expect(summary).toBe('Found 3 pending volume(s) across 2 series.')
+    })
+})
+
+type StubNovel = {
+    id: number
+    name: string
+    userId: string
+    volume: number | null
+    detailsId: string | null
+    detailsUrl: string | null
+}
+
+const originalNovelFindMany = prisma.novel.findMany
+const originalNotificationFindMany = prisma.volumeNotification.findMany
+const originalNotificationCreateMany = prisma.volumeNotification.createMany
+
+function mockPrisma(novels: StubNovel[], notified: Record<number, number[]>) {
+    const created: { userId: string, novelId: number, volume: number }[] = []
+
+    prisma.novel.findMany = (() => Promise.resolve(novels)) as typeof prisma.novel.findMany
+    prisma.volumeNotification.findMany = ((args: { where: { novelId: number } }) =>
+        Promise.resolve((notified[args.where.novelId] ?? []).map(volume => ({ volume })))
+    ) as typeof prisma.volumeNotification.findMany
+    prisma.volumeNotification.createMany = ((args: { data: typeof created }) => {
+        created.push(...args.data)
+        return Promise.resolve({ count: args.data.length })
+    }) as typeof prisma.volumeNotification.createMany
+
+    return created
+}
+
+function restorePrisma() {
+    prisma.novel.findMany = originalNovelFindMany
+    prisma.volumeNotification.findMany = originalNotificationFindMany
+    prisma.volumeNotification.createMany = originalNotificationCreateMany
+}
+
+describe('collectPendingVolumes', () => {
+    const novel: StubNovel = {
+        id: 1,
+        name: 'Chrysalis',
+        userId: '42',
+        volume: 5,
+        detailsId: '12717',
+        detailsUrl: 'https://hardcover.app/series/chrysalis',
+    }
+
+    const books = [
+        { position: 6, title: 'Vol 6', releaseDate: '2026-01-10' },
+        { position: 7, title: 'Vol 7', releaseDate: '2026-02-10' },
+        { position: 8, title: 'Vol 8', releaseDate: '2026-03-10' },
+    ]
+
+    const fetcher = () => Promise.resolve(books)
+
+    afterEach(restorePrisma)
+
+    test('returns every volume above the tracked one', async () => {
+        mockPrisma([novel], {})
+
+        const entries = await collectPendingVolumes(fetcher, '42')
+
+        expect(entries).toHaveLength(1)
+        expect(entries[0].pending.map(volume => volume.position)).toEqual([6, 7, 8])
+        expect(entries[0].trackedVolume).toBe(5)
+        expect(entries[0].notifiedPositions).toEqual([])
+    })
+
+    test('still reports volumes that were already notified about', async () => {
+        mockPrisma([novel], { 1: [6, 7, 8] })
+
+        const entries = await collectPendingVolumes(fetcher, '42')
+
+        expect(entries[0].pending.map(volume => volume.position)).toEqual([6, 7, 8])
+        expect(entries[0].notifiedPositions).toEqual([6, 7, 8])
+    })
+
+    test('drops volumes the user has read even when they were notified about', async () => {
+        mockPrisma([{ ...novel, volume: 6 }], { 1: [6, 7, 8] })
+
+        const entries = await collectPendingVolumes(fetcher, '42')
+
+        expect(entries[0].pending.map(volume => volume.position)).toEqual([7, 8])
+    })
+
+    test('skips series with no books', async () => {
+        mockPrisma([novel], {})
+
+        const entries = await collectPendingVolumes(() => Promise.resolve([]), '42')
+
+        expect(entries).toEqual([])
+    })
+})
+
+describe('checkNewVolumes', () => {
+    const novel: StubNovel = {
+        id: 1,
+        name: 'Chrysalis',
+        userId: '42',
+        volume: 5,
+        detailsId: '12717',
+        detailsUrl: null,
+    }
+
+    const books = [
+        { position: 6, title: 'Vol 6', releaseDate: '2026-01-10' },
+        { position: 7, title: 'Vol 7', releaseDate: '2026-02-10' },
+    ]
+
+    const fetcher = () => Promise.resolve(books)
+
+    function mockApi() {
+        const sent: { userId: string, text: string }[] = []
+        const api = {
+            sendMessage: (userId: string, text: string) => {
+                sent.push({ userId, text })
+                return Promise.resolve()
+            },
+        }
+
+        return { api, sent }
+    }
+
+    afterEach(restorePrisma)
+
+    test('notifies about volumes that were never announced', async () => {
+        const created = mockPrisma([novel], {})
+        const { api, sent } = mockApi()
+
+        const count = await checkNewVolumes(api as never, fetcher)
+
+        expect(count).toBe(2)
+        expect(sent).toHaveLength(1)
+        expect(sent[0].text).toContain('Vol. 6')
+        expect(sent[0].text).toContain('Vol. 7')
+        expect(created.map(entry => entry.volume)).toEqual([6, 7])
+    })
+
+    test('does not re-announce volumes already notified about', async () => {
+        const created = mockPrisma([novel], { 1: [6, 7] })
+        const { api, sent } = mockApi()
+
+        const count = await checkNewVolumes(api as never, fetcher)
+
+        expect(count).toBe(0)
+        expect(sent).toEqual([])
+        expect(created).toEqual([])
+    })
+
+    test('announces only the volumes not yet notified about', async () => {
+        mockPrisma([novel], { 1: [6] })
+        const { api, sent } = mockApi()
+
+        const count = await checkNewVolumes(api as never, fetcher)
+
+        expect(count).toBe(1)
+        expect(sent[0].text).toContain('Vol. 7')
+        expect(sent[0].text).not.toContain('Vol. 6')
     })
 })
