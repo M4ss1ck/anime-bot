@@ -8,6 +8,8 @@ export type PendingVolume = SeriesBook & {
 export const pendingVolumes = (
     trackedVolume: number,
     books: SeriesBook[],
+    // Always [] in production: dedup against notifications now happens in the consumers
+    // (checkNewVolumes / markVolumesNotified). Kept for the existing test that exercises it.
     notifiedPositions: number[],
     now = new Date()
 ): PendingVolume[] => {
@@ -49,4 +51,33 @@ export const formatNewVolumesMessage = ({ name, trackedVolume, volumes, detailsU
     if (detailsUrl) message.push('', escapeHtml(detailsUrl))
 
     return message.join('\n')
+}
+
+export type VolumeReportEntry = {
+    name: string
+    trackedVolume: number
+    pending: PendingVolume[]
+    detailsUrl?: string | null
+}
+
+export const formatVolumeReport = (entries: VolumeReportEntry[]) => {
+    const withPending = entries.filter(entry => entry.pending.length > 0)
+
+    if (withPending.length < 1) {
+        return { messages: [], summary: "You're up to date on all tracked series." }
+    }
+
+    const messages = withPending.map(entry => formatNewVolumesMessage({
+        name: entry.name,
+        trackedVolume: entry.trackedVolume,
+        volumes: entry.pending,
+        detailsUrl: entry.detailsUrl,
+    }))
+
+    const volumeCount = withPending.reduce((total, entry) => total + entry.pending.length, 0)
+
+    return {
+        messages,
+        summary: `Found ${volumeCount} pending volume(s) across ${withPending.length} series.`,
+    }
 }
