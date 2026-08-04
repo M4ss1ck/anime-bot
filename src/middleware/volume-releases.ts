@@ -8,6 +8,8 @@ export type PendingVolume = SeriesBook & {
 export const pendingVolumes = (
     trackedVolume: number,
     books: SeriesBook[],
+    // Always [] in production: dedup against notifications now happens in the consumers
+    // (checkNewVolumes / markVolumesNotified). Kept for the existing test that exercises it.
     notifiedPositions: number[],
     now = new Date()
 ): PendingVolume[] => {

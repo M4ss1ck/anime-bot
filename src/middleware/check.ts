@@ -37,7 +37,11 @@ export const handleCheck = async (ctx: Context) => {
       await ctx.reply(message, { parse_mode: 'HTML' })
     }
 
-    await markVolumesNotified(volumeReport.entries)
+    try {
+      await markVolumesNotified(volumeReport.entries)
+    } catch (error) {
+      logger.error(`Failed to record notified volumes for user ${userId}: ${error}`)
+    }
 
     await ctx.reply(`${volumeReport.summary} Any other update was sent as a separate notification.`)
 

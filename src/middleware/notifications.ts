@@ -226,7 +226,7 @@ export type PendingVolumeEntry = {
 
 // Reports state only: every volume above the user's read progress, regardless of what has
 // already been announced. Consumers decide whether to dedup against notifiedPositions.
-export const collectPendingVolumes = async (fetcher = getSeriesBooks, targetUserId?: string): Promise<PendingVolumeEntry[]> => {
+export const collectPendingVolumes = async (targetUserId?: string, fetcher = getSeriesBooks): Promise<PendingVolumeEntry[]> => {
   // Errors are not swallowed here: a broken check must reach the caller so /check
   // can report it instead of claiming success.
   // Only series with saved Hardcover details can be resolved to a book list
@@ -286,13 +286,13 @@ export const recordNotifiedVolumes = async (userId: string, novelId: number, vol
 export const checkNewVolumes = async (api: Api, fetcher = getSeriesBooks, targetUserId?: string) => {
   logger.info(`Checking for new volumes... ${targetUserId ? `(Target: ${targetUserId})` : ''}`)
 
-  const entries = await collectPendingVolumes(fetcher, targetUserId)
+  const entries = await collectPendingVolumes(targetUserId, fetcher)
 
   let notifiedCount = 0
 
   for (const { novel, trackedVolume, pending, notifiedPositions } of entries) {
-    // The scheduled push only announces each volume once.
-    const unnotified = pending.filter(volume => !notifiedPositions.includes(volume.position))
+    // The scheduled push only announces released volumes, and only once each.
+    const unnotified = pending.filter(volume => volume.released && !notifiedPositions.includes(volume.position))
     if (unnotified.length < 1) continue
 
     const message = formatNewVolumesMessage({
@@ -323,7 +323,7 @@ export const checkNewVolumes = async (api: Api, fetcher = getSeriesBooks, target
 export const reportPendingVolumes = async (targetUserId: string, fetcher = getSeriesBooks) => {
   logger.info(`Reporting pending volumes... (Target: ${targetUserId})`)
 
-  const entries = await collectPendingVolumes(fetcher, targetUserId)
+  const entries = await collectPendingVolumes(targetUserId, fetcher)
 
   const { messages, summary } = formatVolumeReport(entries.map(entry => ({
     name: entry.novel.name,
@@ -339,7 +339,7 @@ export const reportPendingVolumes = async (targetUserId: string, fetcher = getSe
 // duplicate ping about volumes the user just saw on demand.
 export const markVolumesNotified = async (entries: PendingVolumeEntry[]) => {
   for (const { novel, pending, notifiedPositions } of entries) {
-    const unrecorded = pending.filter(volume => !notifiedPositions.includes(volume.position))
+    const unrecorded = pending.filter(volume => volume.released && !notifiedPositions.includes(volume.position))
     await recordNotifiedVolumes(novel.userId, novel.id, unrecorded)
   }
 }

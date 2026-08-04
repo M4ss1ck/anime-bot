@@ -226,9 +226,11 @@ function mockPrisma(novels: StubNovel[], notified: Record<number, number[]>) {
     const created: { userId: string, novelId: number, volume: number }[] = []
 
     prisma.novel.findMany = (() => Promise.resolve(novels)) as typeof prisma.novel.findMany
-    prisma.volumeNotification.findMany = ((args: { where: { novelId: number } }) =>
-        Promise.resolve((notified[args.where.novelId] ?? []).map(volume => ({ volume })))
-    ) as typeof prisma.volumeNotification.findMany
+    prisma.volumeNotification.findMany = ((args: { where: { novelId: number } }) => {
+        const initial = notified[args.where.novelId] ?? []
+        const written = created.filter(entry => entry.novelId === args.where.novelId).map(entry => entry.volume)
+        return Promise.resolve([...initial, ...written].map(volume => ({ volume })))
+    }) as typeof prisma.volumeNotification.findMany
     prisma.volumeNotification.createMany = ((args: { data: typeof created }) => {
         created.push(...args.data)
         return Promise.resolve({ count: args.data.length })
@@ -266,7 +268,7 @@ describe('collectPendingVolumes', () => {
     test('returns every volume above the tracked one', async () => {
         mockPrisma([novel], {})
 
-        const entries = await collectPendingVolumes(fetcher, '42')
+        const entries = await collectPendingVolumes('42', fetcher)
 
         expect(entries).toHaveLength(1)
         expect(entries[0].pending.map(volume => volume.position)).toEqual([6, 7, 8])
@@ -277,7 +279,7 @@ describe('collectPendingVolumes', () => {
     test('still reports volumes that were already notified about', async () => {
         mockPrisma([novel], { 1: [6, 7, 8] })
 
-        const entries = await collectPendingVolumes(fetcher, '42')
+        const entries = await collectPendingVolumes('42', fetcher)
 
         expect(entries[0].pending.map(volume => volume.position)).toEqual([6, 7, 8])
         expect(entries[0].notifiedPositions).toEqual([6, 7, 8])
@@ -286,7 +288,7 @@ describe('collectPendingVolumes', () => {
     test('drops volumes the user has read even when they were notified about', async () => {
         mockPrisma([{ ...novel, volume: 6 }], { 1: [6, 7, 8] })
 
-        const entries = await collectPendingVolumes(fetcher, '42')
+        const entries = await collectPendingVolumes('42', fetcher)
 
         expect(entries[0].pending.map(volume => volume.position)).toEqual([7, 8])
     })
@@ -294,7 +296,7 @@ describe('collectPendingVolumes', () => {
     test('skips series with no books', async () => {
         mockPrisma([novel], {})
 
-        const entries = await collectPendingVolumes(() => Promise.resolve([]), '42')
+        const entries = await collectPendingVolumes('42', () => Promise.resolve([]))
 
         expect(entries).toEqual([])
     })
@@ -365,6 +367,47 @@ describe('checkNewVolumes', () => {
         expect(sent[0].text).toContain('Vol. 7')
         expect(sent[0].text).not.toContain('Vol. 6')
     })
+
+    test('does not announce a volume whose release date is in the future', async () => {
+        const created = mockPrisma([novel], {})
+        const { api, sent } = mockApi()
+        const unreleasedFetcher = () => Promise.resolve([
+            { position: 6, title: 'Vol 6', releaseDate: '2099-01-01' },
+        ])
+
+        const count = await checkNewVolumes(api as never, unreleasedFetcher)
+
+        expect(count).toBe(0)
+        expect(sent).toEqual([])
+        expect(created).toEqual([])
+    })
+
+    test('announces and records a volume once its release date has passed', async () => {
+        const created = mockPrisma([novel], {})
+        const { api, sent } = mockApi()
+        const releasedFetcher = () => Promise.resolve([
+            { position: 6, title: 'Vol 6', releaseDate: '2020-01-01' },
+        ])
+
+        const count = await checkNewVolumes(api as never, releasedFetcher)
+
+        expect(count).toBe(1)
+        expect(sent[0].text).toContain('Vol. 6')
+        expect(created.map(entry => entry.volume)).toEqual([6])
+    })
+
+    test('does not send anything for a /check batch already recorded by markVolumesNotified', async () => {
+        mockPrisma([novel], {})
+        const { api, sent } = mockApi()
+
+        const { entries } = await reportPendingVolumes('42', fetcher)
+        await markVolumesNotified(entries)
+
+        const count = await checkNewVolumes(api as never, fetcher)
+
+        expect(count).toBe(0)
+        expect(sent).toEqual([])
+    })
 })
 
 describe('reportPendingVolumes', () => {
@@ -425,5 +468,19 @@ describe('reportPendingVolumes', () => {
         await markVolumesNotified(entries)
 
         expect(created.map(entry => entry.volume)).toEqual([7, 8])
+    })
+
+    test('displays an unreleased future volume but does not record it as notified', async () => {
+        const created = mockPrisma([novel], {})
+        const unreleasedFetcher = () => Promise.resolve([
+            { position: 6, title: 'Vol 6', releaseDate: '2099-01-01' },
+        ])
+
+        const { messages, entries } = await reportPendingVolumes('42', unreleasedFetcher)
+        await markVolumesNotified(entries)
+
+        expect(messages[0]).toContain('Vol. 6')
+        expect(messages[0]).toContain('expected 2099-01-01')
+        expect(created).toEqual([])
     })
 })
