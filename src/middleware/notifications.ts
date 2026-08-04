@@ -4,7 +4,7 @@ import { getAnimeRelations, getNovelRelations } from "../anilist-service/index.j
 import { logger } from "../logger/index.js"
 import { escapeHtml } from "../utils/index.js"
 import { getSeriesBooks } from "../details-service/providers/hardcover.js"
-import { formatNewVolumesMessage, pendingVolumes } from "./volume-releases.js"
+import { formatNewVolumesMessage, formatVolumeReport, pendingVolumes } from "./volume-releases.js"
 import type { PendingVolume } from "./volume-releases.js"
 import type { Novel } from "../generated/prisma/client.js"
 
@@ -316,4 +316,30 @@ export const checkNewVolumes = async (api: Api, fetcher = getSeriesBooks, target
   }
 
   return notifiedCount
+}
+
+// The /check pull: reports current state against read progress, ignoring what the
+// scheduled push has already announced.
+export const reportPendingVolumes = async (targetUserId: string, fetcher = getSeriesBooks) => {
+  logger.info(`Reporting pending volumes... (Target: ${targetUserId})`)
+
+  const entries = await collectPendingVolumes(fetcher, targetUserId)
+
+  const { messages, summary } = formatVolumeReport(entries.map(entry => ({
+    name: entry.novel.name,
+    trackedVolume: entry.trackedVolume,
+    pending: entry.pending,
+    detailsUrl: entry.novel.detailsUrl
+  })))
+
+  return { messages, summary, entries }
+}
+
+// Called after /check has delivered its report, so the scheduler will not push a
+// duplicate ping about volumes the user just saw on demand.
+export const markVolumesNotified = async (entries: PendingVolumeEntry[]) => {
+  for (const { novel, pending, notifiedPositions } of entries) {
+    const unrecorded = pending.filter(volume => !notifiedPositions.includes(volume.position))
+    await recordNotifiedVolumes(novel.userId, novel.id, unrecorded)
+  }
 }

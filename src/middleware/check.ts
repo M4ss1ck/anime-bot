@@ -1,6 +1,6 @@
 import { Composer } from 'grammy'
 import type { Context } from 'grammy'
-import { checkNewSeasons, checkNewNovelReleases, checkNewVolumes } from './notifications.js'
+import { checkNewSeasons, checkNewNovelReleases, markVolumesNotified, reportPendingVolumes } from './notifications.js'
 import { logger } from '../logger/index.js'
 
 const check = new Composer()
@@ -26,16 +26,20 @@ export const handleCheck = async (ctx: Context) => {
   await ctx.reply('Checking for updates... This might take a moment.')
 
   try {
-    // Run checks for this user
-    // We can run them in parallel
-    const [, , newVolumes] = await Promise.all([
+    // Seasons and novel releases still notify directly, without reporting a count.
+    const [, , volumeReport] = await Promise.all([
       checkNewSeasons(ctx.api, undefined, userId),
       checkNewNovelReleases(ctx.api, undefined, userId),
-      checkNewVolumes(ctx.api, undefined, userId)
+      reportPendingVolumes(userId)
     ])
 
-    // The season/novel checks still notify directly without reporting a count.
-    await ctx.reply(`Check complete. ${newVolumes > 0 ? `Found ${newVolumes} new volume(s).` : 'No new volumes for your series.'} Any other update was sent as a separate notification.`)
+    for (const message of volumeReport.messages) {
+      await ctx.reply(message, { parse_mode: 'HTML' })
+    }
+
+    await markVolumesNotified(volumeReport.entries)
+
+    await ctx.reply(`${volumeReport.summary} Any other update was sent as a separate notification.`)
 
   } catch (error) {
     logger.error(`Error in /check command for user ${userId}: ${error}`)

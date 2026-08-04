@@ -4,7 +4,7 @@ import { getSeriesBooks } from '../src/details-service/providers/hardcover.ts'
 import { formatNewVolumesMessage, formatVolumeReport, pendingVolumes } from '../src/middleware/volume-releases.ts'
 import type { PendingVolume } from '../src/middleware/volume-releases.ts'
 import { prisma } from '../src/db/prisma.ts'
-import { checkNewVolumes, collectPendingVolumes } from '../src/middleware/notifications.ts'
+import { checkNewVolumes, collectPendingVolumes, markVolumesNotified, reportPendingVolumes } from '../src/middleware/notifications.ts'
 
 const originalPost = axios.post
 const originalToken = process.env.HARDCOVER_API_TOKEN
@@ -364,5 +364,66 @@ describe('checkNewVolumes', () => {
         expect(count).toBe(1)
         expect(sent[0].text).toContain('Vol. 7')
         expect(sent[0].text).not.toContain('Vol. 6')
+    })
+})
+
+describe('reportPendingVolumes', () => {
+    const novel: StubNovel = {
+        id: 1,
+        name: 'Chrysalis',
+        userId: '42',
+        volume: 5,
+        detailsId: '12717',
+        detailsUrl: null,
+    }
+
+    const books = [
+        { position: 6, title: 'Vol 6', releaseDate: '2026-01-10' },
+        { position: 7, title: 'Vol 7', releaseDate: '2026-02-10' },
+        { position: 8, title: 'Vol 8', releaseDate: '2026-03-10' },
+    ]
+
+    const fetcher = () => Promise.resolve(books)
+
+    afterEach(restorePrisma)
+
+    test('reports every unread volume even when all were already notified about', async () => {
+        mockPrisma([novel], { 1: [6, 7, 8] })
+
+        const { messages, summary } = await reportPendingVolumes('42', fetcher)
+
+        expect(messages).toHaveLength(1)
+        expect(messages[0]).toContain('Vol. 6')
+        expect(messages[0]).toContain('Vol. 8')
+        expect(summary).toBe('Found 3 pending volume(s) across 1 series.')
+    })
+
+    test('reflects read progress: 3 pending, 1 read, 2 reported', async () => {
+        mockPrisma([{ ...novel, volume: 6 }], { 1: [6, 7, 8] })
+
+        const { messages, summary } = await reportPendingVolumes('42', fetcher)
+
+        expect(messages[0]).not.toContain('Vol. 6')
+        expect(messages[0]).toContain('Vol. 7')
+        expect(messages[0]).toContain('Vol. 8')
+        expect(summary).toBe('Found 2 pending volume(s) across 1 series.')
+    })
+
+    test('reports being up to date when the tracked volume is the last one', async () => {
+        mockPrisma([{ ...novel, volume: 8 }], { 1: [6, 7, 8] })
+
+        const { messages, summary } = await reportPendingVolumes('42', fetcher)
+
+        expect(messages).toEqual([])
+        expect(summary).toBe("You're up to date on all tracked series.")
+    })
+
+    test('marks displayed volumes as notified without rewriting existing rows', async () => {
+        const created = mockPrisma([novel], { 1: [6] })
+
+        const { entries } = await reportPendingVolumes('42', fetcher)
+        await markVolumesNotified(entries)
+
+        expect(created.map(entry => entry.volume)).toEqual([7, 8])
     })
 })
