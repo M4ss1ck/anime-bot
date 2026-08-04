@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import axios from 'axios'
 import { getSeriesBooks } from '../src/details-service/providers/hardcover.ts'
-import { formatNewVolumesMessage, pendingVolumes } from '../src/middleware/volume-releases.ts'
+import { formatNewVolumesMessage, formatVolumeReport, pendingVolumes } from '../src/middleware/volume-releases.ts'
+import type { PendingVolume } from '../src/middleware/volume-releases.ts'
 
 const originalPost = axios.post
 const originalToken = process.env.HARDCOVER_API_TOKEN
@@ -149,5 +150,59 @@ describe('formatNewVolumesMessage', () => {
 
         expect(message).toContain('Ranking of Kings &lt;3')
         expect(message).toContain('A &amp; B')
+    })
+})
+
+describe('formatVolumeReport', () => {
+    const volume = (position: number): PendingVolume => ({
+        position,
+        title: `Vol ${position}`,
+        releaseDate: '2026-01-10',
+        released: true,
+    })
+
+    test('lists every pending volume of a series', () => {
+        const { messages, summary } = formatVolumeReport([
+            { name: 'Chrysalis', trackedVolume: 8, pending: [volume(9), volume(10), volume(11)] },
+        ])
+
+        expect(messages).toHaveLength(1)
+        expect(messages[0]).toContain('<b>Chrysalis</b>')
+        expect(messages[0]).toContain('Vol. 9')
+        expect(messages[0]).toContain('Vol. 10')
+        expect(messages[0]).toContain('Vol. 11')
+        expect(summary).toBe('Found 3 pending volume(s) across 1 series.')
+    })
+
+    test('counts a single pending volume', () => {
+        const { messages, summary } = formatVolumeReport([
+            { name: 'Chrysalis', trackedVolume: 10, pending: [volume(11)] },
+        ])
+
+        expect(messages).toHaveLength(1)
+        expect(summary).toBe('Found 1 pending volume(s) across 1 series.')
+    })
+
+    test('reports being up to date when nothing is pending', () => {
+        const { messages, summary } = formatVolumeReport([
+            { name: 'Chrysalis', trackedVolume: 11, pending: [] },
+            { name: 'Ranking of Kings', trackedVolume: 4, pending: [] },
+        ])
+
+        expect(messages).toEqual([])
+        expect(summary).toBe("You're up to date on all tracked series.")
+    })
+
+    test('emits one message per series and counts across series', () => {
+        const { messages, summary } = formatVolumeReport([
+            { name: 'Chrysalis', trackedVolume: 8, pending: [volume(9), volume(10)] },
+            { name: 'Skipped', trackedVolume: 3, pending: [] },
+            { name: 'Ranking of Kings', trackedVolume: 4, pending: [volume(5)] },
+        ])
+
+        expect(messages).toHaveLength(2)
+        expect(messages[0]).toContain('<b>Chrysalis</b>')
+        expect(messages[1]).toContain('<b>Ranking of Kings</b>')
+        expect(summary).toBe('Found 3 pending volume(s) across 2 series.')
     })
 })
