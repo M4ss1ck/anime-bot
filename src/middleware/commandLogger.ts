@@ -1,5 +1,6 @@
 import { Composer } from 'grammy'
 import { logger as log } from '../logger/index.js'
+import { trackCommand } from '../metrics/command-usage.js'
 
 const logger = new Composer()
 
@@ -9,6 +10,9 @@ logger.use(async (ctx, next) => {
         if (ctx.message?.text && ctx.message.text.startsWith('/')) {
             messageText += `[command] ${ctx.message.text}`
             log.info(messageText)
+            // "/notify_on@mybot monday" -> "notify_on"
+            const command = ctx.message.text.slice(1).split(/[\s@]/)[0]?.toLowerCase()
+            if (command) trackCommand(command)
         } else if (ctx.callbackQuery?.data) {
             messageText += `[action] ${ctx.callbackQuery.data}`
             log.info(messageText)
