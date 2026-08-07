@@ -27,11 +27,28 @@ export const handleCheck = async (ctx: Context) => {
 
   try {
     // Seasons and novel releases still notify directly, without reporting a count.
-    const [, , volumeReport] = await Promise.all([
+    // allSettled: a failing season or novel check must not cost the user their volume report.
+    const [seasons, novels, volumes] = await Promise.allSettled([
       checkNewSeasons(ctx.api, undefined, userId),
       checkNewNovelReleases(ctx.api, undefined, userId),
       reportPendingVolumes(userId)
     ])
+
+    if (seasons.status === 'rejected') {
+      logger.error(`Season check failed for user ${userId}: ${seasons.reason}`)
+    }
+
+    if (novels.status === 'rejected') {
+      logger.error(`Novel release check failed for user ${userId}: ${novels.reason}`)
+    }
+
+    if (volumes.status === 'rejected') {
+      logger.error(`Volume report failed for user ${userId}: ${volumes.reason}`)
+      await ctx.reply('An error occurred while checking for updates.')
+      return
+    }
+
+    const volumeReport = volumes.value
 
     for (const message of volumeReport.messages) {
       await ctx.reply(message, { parse_mode: 'HTML', link_preview_options: { is_disabled: true } })
@@ -43,7 +60,11 @@ export const handleCheck = async (ctx: Context) => {
       logger.error(`Failed to record notified volumes for user ${userId}: ${error}`)
     }
 
-    await ctx.reply(`${volumeReport.summary} Any other update was sent as a separate notification.`)
+    const otherUpdates = seasons.status === 'rejected' || novels.status === 'rejected'
+      ? 'Some checks could not be completed this time — please try again later.'
+      : 'Any other update was sent as a separate notification.'
+
+    await ctx.reply(`${volumeReport.summary} ${otherUpdates}`)
 
   } catch (error) {
     logger.error(`Error in /check command for user ${userId}: ${error}`)

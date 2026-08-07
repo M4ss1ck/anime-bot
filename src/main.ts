@@ -8,6 +8,7 @@ import commands from './middleware/commands.js'
 import actions from './middleware/actions.js'
 import inline from './middleware/inline.js'
 import admin from './middleware/admin.js'
+import metrics from './middleware/metrics.js'
 import exporter from './middleware/exporter.js'
 import ping from './middleware/ping.js'
 import broadcast from './middleware/broadcast.js'
@@ -16,6 +17,7 @@ import { scheduler } from './middleware/scheduler.js'
 import notify from './middleware/notify.js'
 import check from './middleware/check.js'
 import { runScheduled } from './utils/index.js'
+import { flushCommandUsage } from './metrics/command-usage.js'
 
 const botToken = process.env.BOT_TOKEN
 if (!botToken) {
@@ -30,6 +32,7 @@ bot.api.config.use(autoRetry())
 bot
     .use(commandLogger)
     .use(admin)
+    .use(metrics)
     .use(exporter)
     .use(ping)
     .use(anime)
@@ -171,8 +174,9 @@ if (isProduction) {
 
     logger.success(`BOT STARTED (webhook mode on port ${port})`)
 
-    const gracefulStop = (signal: string) => {
+    const gracefulStop = async (signal: string) => {
         logger.info(`Received ${signal}, stopping...`)
+        await flushCommandUsage()
         bot.stop()
         process.exit(0)
     }
@@ -186,6 +190,11 @@ if (isProduction) {
     })
     logger.success('BOT STARTED (polling mode)')
 
-    process.once('SIGINT', () => bot.stop())
-    process.once('SIGTERM', () => bot.stop())
+    const gracefulStop = async () => {
+        await flushCommandUsage()
+        await bot.stop()
+    }
+
+    process.once('SIGINT', gracefulStop)
+    process.once('SIGTERM', gracefulStop)
 }

@@ -6,6 +6,8 @@ import { logger } from "../logger/index.js"
 import dayjs from 'dayjs'
 import { sendDailySummaries } from "../middleware/notify.js"
 import { checkNewSeasons, checkNewNovelReleases, checkNewVolumes } from "../middleware/notifications.js"
+import { recordRun } from "../metrics/task-runs.js"
+import { flushCommandUsage } from "../metrics/command-usage.js"
 
 export const padTo2Digits = (num: number) => {
     return num.toString().padStart(2, '0')
@@ -101,7 +103,7 @@ export const runScheduled = async (bot: Bot) => {
         await scheduled(
             dailySummaryJobId,
             cronExpression,
-            () => sendDailySummaries(bot.api),
+            () => recordRun('daily_summary', () => sendDailySummaries(bot.api)),
             'Daily Anime Summary Generation' // Optional description
         );
         logger.success(`Scheduled daily anime summary with ID: ${dailySummaryJobId} (${cronExpression})`);
@@ -120,9 +122,9 @@ export const runScheduled = async (bot: Bot) => {
             newSeasonCheckJobId,
             cronExpression,
             () => {
-                checkNewSeasons(bot.api)
-                checkNewNovelReleases(bot.api)
-                checkNewVolumes(bot.api).catch(error => logger.error(`Error checking new volumes: ${error}`))
+                recordRun('new_season_check', () => checkNewSeasons(bot.api))
+                recordRun('novel_releases_check', () => checkNewNovelReleases(bot.api))
+                recordRun('new_volumes_check', async () => `${await checkNewVolumes(bot.api)} volume(s) notified`)
             },
             'New Season/Novel Check'
         );
@@ -131,6 +133,24 @@ export const runScheduled = async (bot: Bot) => {
         logger.error('Failed to schedule the new season check job:', error);
     }
     // --- End New Season Check Scheduling ---
+
+    // --- Schedule Command Usage Flush ---
+    try {
+        logger.info('Scheduling command usage flush job...');
+        const usageFlushJobId = 'internal:command_usage_flush';
+        const cronExpression = '*/10 * * * *'; // Drain the in-memory counters every 10 minutes
+
+        await scheduled(
+            usageFlushJobId,
+            cronExpression,
+            () => { flushCommandUsage() },
+            'Command Usage Flush'
+        );
+        logger.success(`Scheduled command usage flush with ID: ${usageFlushJobId} (${cronExpression})`);
+    } catch (error) {
+        logger.error('Failed to schedule the command usage flush job:', error);
+    }
+    // --- End Command Usage Flush Scheduling ---
 }
 
 export const escapeHtml = (s: string) => {

@@ -398,6 +398,7 @@ export async function sendDailySummaries(api: Api) {
         logger.info('Finished daily summary generation task.');
     } catch (error) {
         logger.error('Critical error during daily summary generation task:', error);
+        throw error;
     }
 }
 
