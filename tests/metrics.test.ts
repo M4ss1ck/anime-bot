@@ -5,6 +5,7 @@ import { recordRun } from '../src/metrics/task-runs.ts'
 import { flushCommandUsage, pendingCommandCount, trackCommand } from '../src/metrics/command-usage.ts'
 import { checkNewNovelReleases, checkNewSeasons } from '../src/middleware/notifications.ts'
 import { handleCheck } from '../src/middleware/check.ts'
+import { collectMetrics } from '../src/metrics/collect.ts'
 
 const originalTaskRunUpsert = prisma.taskRun.upsert
 
@@ -231,5 +232,93 @@ describe('/check summary caveat', () => {
         await handleCheck(ctx)
 
         expect(replies.some(text => text.includes('Any other update was sent'))).toBe(true)
+    })
+})
+
+const originalTransaction = prisma.$transaction
+
+describe('collectMetrics', () => {
+    afterEach(() => {
+        prisma.$transaction = originalTransaction
+    })
+
+    test('assembles totals, growth and derived numbers', async () => {
+        const day = 24 * 60 * 60 * 1000
+        const trackingSince = new Date('2026-01-01T00:00:00Z')
+
+        prisma.$transaction = (() => Promise.resolve([
+            10,                                     // users total
+            2,                                      // users new 7d
+            5,                                      // users new 30d
+            { createdAt: trackingSince },           // earliest user
+            3,                                      // dormant users
+            40,                                     // anime total
+            4,                                      // anime new 7d
+            7,                                      // anime on air
+            20,                                     // novels total
+            1,                                      // novels new 7d
+            6,                                      // novels releasing
+            5,                                      // novels hardcover-linked
+            2,                                      // notification groups
+            [{ _count: { users: 3 } }, { _count: { users: 1 } }], // memberships
+            { createdAt: new Date('2026-07-30T00:00:00Z') },      // newest group
+            [                                       // reminder jobs
+                { date: String(Date.now() + day) },
+                { date: String(Date.now() - day) },
+                { date: '0 9 * * *' }
+            ],
+            9,                                      // notification history total
+            1,                                      // notification history 7d
+            { createdAt: new Date('2026-08-04T00:00:00Z') },
+            8,                                      // volume notifications total
+            2,                                      // volume notifications 7d
+            { createdAt: new Date('2026-08-05T00:00:00Z') },
+            [],                                     // task runs
+            [{ command: 'check', count: 12 }, { command: 'ping', count: 3 }],
+            [{ userId: 'a' }, { userId: 'b' }],     // anime active 7d
+            [{ userId: 'b' }, { userId: 'c' }],     // novel active 7d
+            [{ userId: 'a' }],                      // anime active 30d
+            [{ userId: 'd' }]                       // novel active 30d
+        ])) as unknown as typeof prisma.$transaction
+
+        const metrics = await collectMetrics()
+
+        expect(metrics.users.total).toBe(10)
+        expect(metrics.users.new7d).toBe(2)
+        expect(metrics.users.dormant).toBe(3)
+        expect(metrics.users.trackingSince).toEqual(trackingSince)
+        expect(metrics.users.active7d).toBe(3)   // a, b, c
+        expect(metrics.users.active30d).toBe(2)  // a, d
+        expect(metrics.anime.avgPerUser).toBe(4)
+        expect(metrics.novels.hardcoverLinked).toBe(5)
+        expect(metrics.groups.memberships).toBe(4)
+        expect(metrics.reminders.active).toBe(2) // future timestamp + cron expression
+        expect(metrics.reminders.expired).toBe(1)
+        expect(metrics.commands.total).toBe(15)
+        expect(metrics.commands.top[0]).toEqual({ command: 'check', count: 12 })
+    })
+
+    test('handles an empty database without dividing by zero', async () => {
+        prisma.$transaction = (() => Promise.resolve([
+            0, 0, 0, null, 0,
+            0, 0, 0,
+            0, 0, 0, 0,
+            0, [], null,
+            [],
+            0, 0, null,
+            0, 0, null,
+            [], [],
+            [], [], [], []
+        ])) as unknown as typeof prisma.$transaction
+
+        const metrics = await collectMetrics()
+
+        expect(metrics.users.total).toBe(0)
+        expect(metrics.anime.avgPerUser).toBe(0)
+        expect(metrics.novels.avgPerUser).toBe(0)
+        expect(metrics.users.trackingSince).toBeNull()
+        expect(metrics.tasks).toHaveLength(4)
+        expect(metrics.tasks[0]?.lastRunAt).toBeNull()
+        expect(metrics.commands.top).toHaveLength(0)
     })
 })
