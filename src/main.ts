@@ -8,6 +8,7 @@ import commands from './middleware/commands.js'
 import actions from './middleware/actions.js'
 import inline from './middleware/inline.js'
 import admin from './middleware/admin.js'
+import metrics from './middleware/metrics.js'
 import exporter from './middleware/exporter.js'
 import ping from './middleware/ping.js'
 import broadcast from './middleware/broadcast.js'
@@ -31,6 +32,7 @@ bot.api.config.use(autoRetry())
 bot
     .use(commandLogger)
     .use(admin)
+    .use(metrics)
     .use(exporter)
     .use(ping)
     .use(anime)

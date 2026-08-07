@@ -6,6 +6,8 @@ import { flushCommandUsage, pendingCommandCount, trackCommand } from '../src/met
 import { checkNewNovelReleases, checkNewSeasons } from '../src/middleware/notifications.ts'
 import { handleCheck } from '../src/middleware/check.ts'
 import { collectMetrics } from '../src/metrics/collect.ts'
+import { formatMetrics } from '../src/middleware/metrics.ts'
+import type { Metrics } from '../src/metrics/collect.ts'
 
 const originalTaskRunUpsert = prisma.taskRun.upsert
 
@@ -320,5 +322,94 @@ describe('collectMetrics', () => {
         expect(metrics.tasks).toHaveLength(4)
         expect(metrics.tasks[0]?.lastRunAt).toBeNull()
         expect(metrics.commands.top).toHaveLength(0)
+    })
+})
+
+const emptyMetrics = (): Metrics => ({
+    generatedAt: new Date('2026-08-06T12:00:00Z'),
+    uptimeMs: 0,
+    mode: 'polling',
+    env: 'development',
+    users: { total: 0, new7d: 0, new30d: 0, active7d: 0, active30d: 0, dormant: 0, trackingSince: null },
+    anime: { total: 0, new7d: 0, onAir: 0, avgPerUser: 0 },
+    novels: { total: 0, new7d: 0, releasing: 0, hardcoverLinked: 0, avgPerUser: 0 },
+    groups: { total: 0, memberships: 0, newest: null },
+    reminders: { active: 0, expired: 0 },
+    delivered: {
+        seasons: { total: 0, last7d: 0, latest: null },
+        volumes: { total: 0, last7d: 0, latest: null }
+    },
+    tasks: [
+        { name: 'daily_summary', lastRunAt: null, lastDurationMs: null, lastStatus: null, lastDetail: null, runCount: 0, failCount: 0, nextRunAt: null },
+        { name: 'new_season_check', lastRunAt: null, lastDurationMs: null, lastStatus: null, lastDetail: null, runCount: 0, failCount: 0, nextRunAt: null },
+        { name: 'novel_releases_check', lastRunAt: null, lastDurationMs: null, lastStatus: null, lastDetail: null, runCount: 0, failCount: 0, nextRunAt: null },
+        { name: 'new_volumes_check', lastRunAt: null, lastDurationMs: null, lastStatus: null, lastDetail: null, runCount: 0, failCount: 0, nextRunAt: null }
+    ],
+    commands: { total: 0, pendingFlush: 0, top: [] }
+})
+
+describe('formatMetrics', () => {
+    test('renders every section with populated data', () => {
+        const metrics = emptyMetrics()
+        metrics.uptimeMs = 3 * 24 * 60 * 60 * 1000
+        metrics.mode = 'webhook'
+        metrics.env = 'production'
+        metrics.users = { total: 128, new7d: 4, new30d: 19, active7d: 31, active30d: 58, dormant: 12, trackingSince: new Date('2026-08-06T00:00:00Z') }
+        metrics.anime = { total: 1204, new7d: 31, onAir: 87, avgPerUser: 9.4 }
+        metrics.novels = { total: 342, new7d: 8, releasing: 61, hardcoverLinked: 44, avgPerUser: 2.7 }
+        metrics.groups = { total: 7, memberships: 23, newest: new Date('2026-07-30T00:00:00Z') }
+        metrics.reminders = { active: 54, expired: 12 }
+        metrics.tasks[3] = {
+            name: 'new_volumes_check',
+            lastRunAt: new Date('2026-08-06T08:00:00Z'),
+            lastDurationMs: 12300,
+            lastStatus: 'ok',
+            lastDetail: '3 volume(s) notified',
+            runCount: 142,
+            failCount: 0,
+            nextRunAt: new Date('2026-08-07T08:00:00Z')
+        }
+        metrics.commands = { total: 3142, pendingFlush: 14, top: [{ command: 'check', count: 412 }] }
+
+        const text = formatMetrics(metrics)
+
+        expect(text).toContain('Bot Metrics')
+        expect(text).toContain('128 total')
+        expect(text).toContain('on air: 87')
+        expect(text).toContain('Hardcover-linked: 44')
+        expect(text).toContain('54 active')
+        expect(text).toContain('new_volumes_check')
+        expect(text).toContain('3 volume(s) notified')
+        expect(text).toContain('/check 412')
+        expect(text).toContain('14 pending flush')
+        expect(text.length).toBeLessThan(4096)
+    })
+
+    test('renders the empty state without crashing on nulls', () => {
+        const text = formatMetrics(emptyMetrics())
+
+        expect(text).toContain('never run')
+        expect(text).toContain('no commands recorded yet')
+        expect(text).not.toContain('undefined')
+        expect(text).not.toContain('NaN')
+        expect(text).not.toContain('Invalid Date')
+    })
+
+    test('escapes HTML in task detail so a failure message cannot break the message', () => {
+        const metrics = emptyMetrics()
+        metrics.tasks[0] = {
+            name: 'daily_summary',
+            lastRunAt: new Date('2026-08-06T09:00:00Z'),
+            lastDurationMs: 10,
+            lastStatus: 'failed',
+            lastDetail: 'Error: <bad> & "worse"',
+            runCount: 1,
+            failCount: 1
+        }
+
+        const text = formatMetrics(metrics)
+
+        expect(text).toContain('&lt;bad&gt;')
+        expect(text).not.toContain('<bad>')
     })
 })
