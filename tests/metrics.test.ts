@@ -5,6 +5,7 @@ import { recordRun } from '../src/metrics/task-runs.ts'
 import { flushCommandUsage, pendingCommandCount, trackCommand } from '../src/metrics/command-usage.ts'
 import { checkNewNovelReleases, checkNewSeasons } from '../src/middleware/notifications.ts'
 import { handleCheck } from '../src/middleware/check.ts'
+import commandLogger from '../src/middleware/commandLogger.ts'
 import { collectMetrics } from '../src/metrics/collect.ts'
 import { formatMetrics } from '../src/middleware/metrics.ts'
 import type { Metrics } from '../src/metrics/collect.ts'
@@ -168,6 +169,51 @@ describe('command usage', () => {
     })
 })
 
+describe('commandLogger command validation', () => {
+    const middleware = commandLogger.middleware()
+
+    async function run(text: string) {
+        const ctx = { message: { text }, from: { id: 1 } } as unknown as Parameters<typeof middleware>[0]
+        await middleware(ctx, async () => undefined)
+    }
+
+    afterEach(async () => {
+        // Drain the module-level map so tests do not leak counts into each other.
+        mockCommandUsageUpsert()
+        await flushCommandUsage()
+        prisma.commandUsage.upsert = originalCommandUsageUpsert
+    })
+
+    test('a normal command counts', async () => {
+        await run('/ping')
+
+        expect(pendingCommandCount()).toBe(1)
+        const calls = mockCommandUsageUpsert()
+        await flushCommandUsage()
+        expect(calls[0]?.where).toEqual({ command: 'ping' })
+    })
+
+    test('a command with a bot mention and trailing args counts under the bare command name', async () => {
+        await run('/notify_on@mybot monday')
+
+        const calls = mockCommandUsageUpsert()
+        await flushCommandUsage()
+        expect(calls[0]?.where).toEqual({ command: 'notify_on' })
+    })
+
+    test('an oversized garbage command does not count', async () => {
+        await run('/' + 'a'.repeat(300))
+
+        expect(pendingCommandCount()).toBe(0)
+    })
+
+    test('a lone slash does not count', async () => {
+        await run('/')
+
+        expect(pendingCommandCount()).toBe(0)
+    })
+})
+
 const originalAnimeFindMany = prisma.anime.findMany
 const originalNovelFindMany = prisma.novel.findMany
 
@@ -239,9 +285,15 @@ describe('/check summary caveat', () => {
 
 const originalTransaction = prisma.$transaction
 
+const originalNovelCount = prisma.novel.count
+
 describe('collectMetrics', () => {
     afterEach(() => {
         prisma.$transaction = originalTransaction
+    })
+
+    afterEach(() => {
+        prisma.novel.count = originalNovelCount
     })
 
     test('assembles totals, growth and derived numbers', async () => {
@@ -322,6 +374,60 @@ describe('collectMetrics', () => {
         expect(metrics.tasks).toHaveLength(4)
         expect(metrics.tasks[0]?.lastRunAt).toBeNull()
         expect(metrics.commands.top).toHaveLength(0)
+    })
+
+    test('counts hardcover-linked novels with the same eligibility filter as the volume checker', async () => {
+        const day = 24 * 60 * 60 * 1000
+        const trackingSince = new Date('2026-01-01T00:00:00Z')
+
+        prisma.$transaction = (() => Promise.resolve([
+            10,                                     // users total
+            2,                                      // users new 7d
+            5,                                      // users new 30d
+            { createdAt: trackingSince },           // earliest user
+            3,                                      // dormant users
+            40,                                     // anime total
+            4,                                      // anime new 7d
+            7,                                      // anime on air
+            20,                                     // novels total
+            1,                                      // novels new 7d
+            6,                                      // novels releasing
+            5,                                      // novels hardcover-linked
+            2,                                      // notification groups
+            [{ _count: { users: 3 } }, { _count: { users: 1 } }], // memberships
+            { createdAt: new Date('2026-07-30T00:00:00Z') },      // newest group
+            [                                       // reminder jobs
+                { date: String(Date.now() + day) },
+                { date: String(Date.now() - day) },
+                { date: '0 9 * * *' }
+            ],
+            9,                                      // notification history total
+            1,                                      // notification history 7d
+            { createdAt: new Date('2026-08-04T00:00:00Z') },
+            8,                                      // volume notifications total
+            2,                                      // volume notifications 7d
+            { createdAt: new Date('2026-08-05T00:00:00Z') },
+            [],                                     // task runs
+            [{ command: 'check', count: 12 }, { command: 'ping', count: 3 }],
+            [{ userId: 'a' }, { userId: 'b' }],     // anime active 7d
+            [{ userId: 'b' }, { userId: 'c' }],     // novel active 7d
+            [{ userId: 'a' }],                      // anime active 30d
+            [{ userId: 'd' }]                       // novel active 30d
+        ])) as unknown as typeof prisma.$transaction
+
+        const wheres: unknown[] = []
+        prisma.novel.count = ((args?: { where?: unknown }) => {
+            wheres.push(args?.where)
+            return Promise.resolve(0)
+        }) as unknown as typeof prisma.novel.count
+
+        await collectMetrics()
+
+        expect(wheres).toContainEqual({
+            detailsProvider: 'hardcover',
+            detailsId: { not: null },
+            volume: { not: null }
+        })
     })
 })
 

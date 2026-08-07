@@ -12,7 +12,7 @@ logger.use(async (ctx, next) => {
             log.info(messageText)
             // "/notify_on@mybot monday" -> "notify_on"
             const command = ctx.message.text.slice(1).split(/[\s@]/)[0]?.toLowerCase()
-            if (command) trackCommand(command)
+            if (command && /^[a-z0-9_]{1,32}$/.test(command)) trackCommand(command)
         } else if (ctx.callbackQuery?.data) {
             messageText += `[action] ${ctx.callbackQuery.data}`
             log.info(messageText)

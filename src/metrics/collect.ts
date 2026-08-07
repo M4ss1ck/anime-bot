@@ -121,7 +121,7 @@ export const collectMetrics = async (): Promise<Metrics> => {
         prisma.novel.count(),
         prisma.novel.count({ where: { createdAt: { gte: day7 } } }),
         prisma.novel.count({ where: { releasing: true } }),
-        prisma.novel.count({ where: { detailsProvider: 'hardcover', detailsId: { not: null } } }),
+        prisma.novel.count({ where: { detailsProvider: 'hardcover', detailsId: { not: null }, volume: { not: null } } }),
         prisma.notificationGroup.count(),
         prisma.notificationGroup.findMany({ select: { _count: { select: { users: true } } } }),
         prisma.notificationGroup.findFirst({ orderBy: { createdAt: 'desc' }, select: { createdAt: true } }),
