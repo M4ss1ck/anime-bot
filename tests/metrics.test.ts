@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, test } from 'bun:test'
+import type { Api } from 'grammy'
 import { prisma } from '../src/db/prisma.ts'
 import { recordRun } from '../src/metrics/task-runs.ts'
 import { flushCommandUsage, pendingCommandCount, trackCommand } from '../src/metrics/command-usage.ts'
+import { checkNewNovelReleases, checkNewSeasons } from '../src/middleware/notifications.ts'
 
 const originalTaskRunUpsert = prisma.taskRun.upsert
 
@@ -159,5 +161,31 @@ describe('command usage', () => {
         mockCommandUsageUpsert('check')
 
         expect(await flushCommandUsage()).toBeUndefined()
+    })
+})
+
+const originalAnimeFindMany = prisma.anime.findMany
+const originalNovelFindMany = prisma.novel.findMany
+
+describe('task failures reach the caller', () => {
+    afterEach(() => {
+        prisma.anime.findMany = originalAnimeFindMany
+        prisma.novel.findMany = originalNovelFindMany
+    })
+
+    test('checkNewSeasons rejects when the database fails', async () => {
+        prisma.anime.findMany = (() =>
+            Promise.reject(new Error('db down'))) as typeof prisma.anime.findMany
+
+        // The await is load-bearing: without it the assertion never runs and the test
+        // passes no matter what the function does.
+        await expect(checkNewSeasons({} as Api)).rejects.toThrow('db down')
+    })
+
+    test('checkNewNovelReleases rejects when the database fails', async () => {
+        prisma.novel.findMany = (() =>
+            Promise.reject(new Error('db down'))) as typeof prisma.novel.findMany
+
+        await expect(checkNewNovelReleases({} as Api)).rejects.toThrow('db down')
     })
 })

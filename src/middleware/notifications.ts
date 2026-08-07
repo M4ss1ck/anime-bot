@@ -113,6 +113,7 @@ export const checkNewSeasons = async (api: Api, fetcher = getAnimeRelations, tar
     }
   } catch (error) {
     logger.error(`Error checking new seasons: ${error}`)
+    throw error
   }
 }
 
@@ -214,6 +215,7 @@ export const checkNewNovelReleases = async (api: Api, fetcher = getNovelRelation
     }
   } catch (error) {
     logger.error(`Error checking new novel releases: ${error}`)
+    throw error
   }
 }
 
