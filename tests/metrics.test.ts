@@ -4,6 +4,7 @@ import { prisma } from '../src/db/prisma.ts'
 import { recordRun } from '../src/metrics/task-runs.ts'
 import { flushCommandUsage, pendingCommandCount, trackCommand } from '../src/metrics/command-usage.ts'
 import { checkNewNovelReleases, checkNewSeasons } from '../src/middleware/notifications.ts'
+import { handleCheck } from '../src/middleware/check.ts'
 
 const originalTaskRunUpsert = prisma.taskRun.upsert
 
@@ -187,5 +188,48 @@ describe('task failures reach the caller', () => {
             Promise.reject(new Error('db down'))) as typeof prisma.novel.findMany
 
         await expect(checkNewNovelReleases({} as Api)).rejects.toThrow('db down')
+    })
+})
+
+function makeCtx(userId: number) {
+    const replies: string[] = []
+    return {
+        ctx: {
+            from: { id: userId },
+            api: {},
+            reply: (text: string) => {
+                replies.push(text)
+                return Promise.resolve()
+            }
+        } as unknown as Parameters<typeof handleCheck>[0],
+        replies
+    }
+}
+
+describe('/check summary caveat', () => {
+    afterEach(() => {
+        prisma.anime.findMany = originalAnimeFindMany
+        prisma.novel.findMany = originalNovelFindMany
+    })
+
+    test('warns about incomplete checks when the season check fails', async () => {
+        prisma.anime.findMany = (() =>
+            Promise.reject(new Error('db down'))) as typeof prisma.anime.findMany
+        prisma.novel.findMany = (() => Promise.resolve([])) as unknown as typeof prisma.novel.findMany
+
+        const { ctx, replies } = makeCtx(1001)
+        await handleCheck(ctx)
+
+        expect(replies.some(text => text.includes('Some checks could not be completed'))).toBe(true)
+    })
+
+    test('uses the normal wording when all checks succeed', async () => {
+        prisma.anime.findMany = (() => Promise.resolve([])) as unknown as typeof prisma.anime.findMany
+        prisma.novel.findMany = (() => Promise.resolve([])) as unknown as typeof prisma.novel.findMany
+
+        const { ctx, replies } = makeCtx(1002)
+        await handleCheck(ctx)
+
+        expect(replies.some(text => text.includes('Any other update was sent'))).toBe(true)
     })
 })
