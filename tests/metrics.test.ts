@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { prisma } from '../src/db/prisma.ts'
 import { recordRun } from '../src/metrics/task-runs.ts'
+import { flushCommandUsage, pendingCommandCount, trackCommand } from '../src/metrics/command-usage.ts'
 
 const originalTaskRunUpsert = prisma.taskRun.upsert
 
@@ -75,5 +76,88 @@ describe('recordRun', () => {
         expect(await recordRun('daily_summary', async () => {
             throw new Error('boom')
         })).toBeUndefined()
+    })
+})
+
+const originalCommandUsageUpsert = prisma.commandUsage.upsert
+
+type UsageUpsertArgs = {
+    where: { command: string }
+    create: { command: string, count: number, lastUsedAt: Date }
+    update: { count: { increment: number }, lastUsedAt: Date }
+}
+
+function mockCommandUsageUpsert(failOn?: string) {
+    const calls: UsageUpsertArgs[] = []
+
+    prisma.commandUsage.upsert = ((args: UsageUpsertArgs) => {
+        calls.push(args)
+        return args.where.command === failOn
+            ? Promise.reject(new Error('db down'))
+            : Promise.resolve({})
+    }) as unknown as typeof prisma.commandUsage.upsert
+
+    return calls
+}
+
+describe('command usage', () => {
+    afterEach(async () => {
+        // Drain the module-level map so tests do not leak counts into each other.
+        mockCommandUsageUpsert()
+        await flushCommandUsage()
+        prisma.commandUsage.upsert = originalCommandUsageUpsert
+    })
+
+    test('accumulates counts in memory without touching the database', () => {
+        prisma.commandUsage.upsert = (() => {
+            throw new Error('must not be called')
+        }) as unknown as typeof prisma.commandUsage.upsert
+
+        trackCommand('check')
+        trackCommand('check')
+        trackCommand('myanime')
+
+        expect(pendingCommandCount()).toBe(3)
+    })
+
+    test('flush drains the buffer into upserts', async () => {
+        trackCommand('check')
+        trackCommand('check')
+        const calls = mockCommandUsageUpsert()
+
+        await flushCommandUsage()
+
+        expect(calls).toHaveLength(1)
+        expect(calls[0]?.where).toEqual({ command: 'check' })
+        expect(calls[0]?.create.count).toBe(2)
+        expect(calls[0]?.update.count).toEqual({ increment: 2 })
+        expect(pendingCommandCount()).toBe(0)
+    })
+
+    test('flush is a no-op when nothing is buffered', async () => {
+        const calls = mockCommandUsageUpsert()
+
+        await flushCommandUsage()
+
+        expect(calls).toHaveLength(0)
+    })
+
+    test('merges counts back into the buffer when an upsert fails', async () => {
+        trackCommand('check')
+        trackCommand('check')
+        trackCommand('myanime')
+        mockCommandUsageUpsert('check')
+
+        await flushCommandUsage()
+
+        // "check" (2) is preserved for the next flush; "myanime" (1) was written.
+        expect(pendingCommandCount()).toBe(2)
+    })
+
+    test('never rejects when the database is unreachable', async () => {
+        trackCommand('check')
+        mockCommandUsageUpsert('check')
+
+        expect(await flushCommandUsage()).toBeUndefined()
     })
 })
