@@ -13,6 +13,7 @@ datasource db {
 
 model User {
   id                 String              @id
+  createdAt          DateTime            @default(now())
   animes             Anime[]
   novels             Novel[]
   notificationGroups NotificationGroup[]
@@ -37,6 +38,7 @@ model Anime {
   streamingUrl    String?
   userId          String
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime  @default(now())
   updatedAt       DateTime? @updatedAt
 
   @@unique([name, userId])
@@ -64,6 +66,7 @@ model Novel {
   source          String?
   userId          String
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime  @default(now())
   updatedAt       DateTime? @updatedAt
 
   @@unique([name, userId])
@@ -100,4 +103,20 @@ model NotificationHistory {
   createdAt DateTime @default(now())
 
   @@unique([userId, animeId])
+}
+
+model TaskRun {
+  name           String   @id
+  lastRunAt      DateTime
+  lastDurationMs Int
+  lastStatus     String
+  lastDetail     String?
+  runCount       Int      @default(0)
+  failCount      Int      @default(0)
+}
+
+model CommandUsage {
+  command    String   @id
+  count      Int      @default(0)
+  lastUsedAt DateTime
 }
