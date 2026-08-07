@@ -34,7 +34,7 @@ export const handleCheck = async (ctx: Context) => {
     ])
 
     for (const message of volumeReport.messages) {
-      await ctx.reply(message, { parse_mode: 'HTML' })
+      await ctx.reply(message, { parse_mode: 'HTML', link_preview_options: { is_disabled: true } })
     }
 
     try {

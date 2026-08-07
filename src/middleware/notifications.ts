@@ -304,7 +304,8 @@ export const checkNewVolumes = async (api: Api, fetcher = getSeriesBooks, target
 
     try {
       await api.sendMessage(novel.userId, message, {
-        parse_mode: 'HTML'
+        parse_mode: 'HTML',
+        link_preview_options: { is_disabled: true }
       })
 
       await recordNotifiedVolumes(novel.userId, novel.id, unnotified)
