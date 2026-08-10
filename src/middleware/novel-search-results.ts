@@ -4,14 +4,6 @@ import { escapeHtml } from '../utils/index.js'
 
 const MAX_CALLBACK_DATA_LENGTH = 64
 
-const providerLabels: Record<DetailProviderId, string> = {
-    anilist: 'ANILIST',
-    kitsu: 'KITSU',
-    'google-books': 'GOOGLE BOOKS',
-    'open-library': 'OPEN LIBRARY',
-    hardcover: 'HARDCOVER',
-}
-
 const providerAliases: Record<DetailProviderId, string> = {
     anilist: 'al',
     kitsu: 'ki',
@@ -29,12 +21,8 @@ export type ReadingDetailsRef = {
     id: string
 }
 
-export function readingResultButtonLabel(details: Pick<MediaDetails, 'provider' | 'title'>) {
-    const provider = providerLabels[details.provider] ?? details.provider.toUpperCase()
-    const maxTitleLength = 48 - provider.length
-    const title = details.title.length > maxTitleLength ? `${details.title.slice(0, Math.max(10, maxTitleLength - 3))}...` : details.title
-
-    return `[${provider}] ${title}`
+export function readingResultButtonLabel(details: Pick<MediaDetails, 'title'>) {
+    return details.title.length > 48 ? `${details.title.slice(0, 45)}...` : details.title
 }
 
 export function readingDetailsPreviewText(details: MediaDetails) {
