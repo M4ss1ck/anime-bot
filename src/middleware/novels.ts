@@ -4,7 +4,7 @@ import { getNovel } from '../anilist-service/index.js'
 import { prisma } from '../db/prisma.js'
 import { escapeHtml } from '../utils/index.js'
 import * as fs from 'fs/promises'
-import { getBestDetails, getDetailsByProvider, getProvider, searchDetails, summarizeDetails, toReadingUpdate } from '../details-service/index.js'
+import { getBestDetails, getDetailsByProvider, getProvider, searchDefaultDetails, searchDetails, summarizeDetails, toReadingUpdate } from '../details-service/index.js'
 import type { Novel } from '../generated/prisma/client.js'
 import {
     buildAddReadingCallback,
@@ -27,7 +27,7 @@ novel.command('novel', async (ctx) => {
     const search = (ctx.msg?.text ?? '').replace(/^\/novel((@\w+)?\s+)?/i, '')
     if (search.length > 2) {
         try {
-            const results = await searchDetails('reading', search, 5)
+            const results = await searchDefaultDetails('reading', search, 5)
             const buttons = results
                 .map(buildReadingResultButton)
                 .filter((button): button is { text: string, callback_data: string } => Boolean(button))

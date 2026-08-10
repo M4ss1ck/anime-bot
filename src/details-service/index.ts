@@ -24,6 +24,26 @@ export function getProvider(providerId: string): MediaDetailsProvider | undefine
     return detailProviders.find(provider => provider.id === providerId)
 }
 
+export const defaultProviders: Record<DetailKind, DetailProviderId> = {
+    anime: 'anilist',
+    reading: 'hardcover',
+}
+
+export async function searchDefaultDetails(kind: DetailKind, query: string, limit = 5): Promise<MediaDetails[]> {
+    const provider = getProvider(defaultProviders[kind])
+
+    if (provider && supportsKind(provider, kind)) {
+        try {
+            const results = await provider.search({ kind, query, limit })
+            if (results.length > 0) return dedupeDetails(results)
+        } catch {
+            // default provider failed; fall back to the full fan-out below
+        }
+    }
+
+    return searchDetails(kind, query, limit)
+}
+
 export async function searchDetails(kind: DetailKind, query: string, limit = 5): Promise<MediaDetails[]> {
     const providers = detailProviders.filter(provider => supportsKind(provider, kind))
     const settled = await Promise.allSettled(providers.map(provider => provider.search({ kind, query, limit })))
@@ -44,7 +64,7 @@ export async function getBestDetails(kind: DetailKind, record: SavedMediaRecord)
         if (anilistDetails) return anilistDetails
     }
 
-    const results = await searchDetails(kind, record.name, 3)
+    const results = await searchDefaultDetails(kind, record.name, 3)
     return results[0] ?? null
 }
 
