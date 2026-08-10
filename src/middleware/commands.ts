@@ -27,8 +27,10 @@ commands.command('help', async (ctx) => {
         `<code>/onair</code> - List your saved anime that are currently airing\n` +
         `<code>/import</code> - Import anime list (reply to a .txt file)\n\n` +
         `<b>📖 Novel Management</b>\n` +
-        `<code>/nsave &lt;part/vol/ch&gt; &lt;name&gt;</code> - Save novel progress\n` +
-        `<i>(part/vol/ch must be a number)</i>\n` +
+        `<code>/nsave [partN] [volN] [chN] &lt;name&gt;</code> - Save novel progress\n` +
+        `<i>part, vol and ch are optional prefixes written together with the number (e.g. vol3, not 3)</i>\n` +
+        `You can add a note on a new line. Example:\n` +
+        `<pre>/nsave part2 vol5 ch134 Classroom of the Elite\nReading it with the anime</pre>\n` +
         `<code>/mynovels</code> - List your saved novels\n` +
         `<code>/releasing</code> - List your saved novels that are releasing\n\n` +
         `<b>🔍 Search</b>\n` +

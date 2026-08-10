@@ -103,7 +103,7 @@ if (commandList && !commandList.some((command) => command.command === latestComm
         },
         {
             command: "novel",
-            description: "Search novel in AniList."
+            description: "Search novels."
         },
         {
             command: "ping",
@@ -127,7 +127,7 @@ if (commandList && !commandList.some((command) => command.command === latestComm
         },
         {
             command: "nsave",
-            description: "Save novel progress."
+            description: "Save novel progress, e.g. /nsave vol3 Overlord."
         },
         {
             command: "export",
