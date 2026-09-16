@@ -153,15 +153,17 @@ export const runScheduled = async (bot: Bot) => {
     // --- End Command Usage Flush Scheduling ---
 }
 
+// Telegram's HTML parse mode only understands &lt; &gt; &amp; and &quot;.
+// Escaping ' to &apos; made Telegram print the entity verbatim
+// ("Cruelty&apos;s Antidote"), so apostrophes are left as-is.
 export const escapeHtml = (s: string) => {
     const lookup: Record<string, string> = {
         '&': "&amp;",
         '"': "&quot;",
-        "'": "&apos;",
         '<': "&lt;",
         '>': "&gt;"
     };
-    return s.replace(/[&"'<>]/g, c => lookup[c]);
+    return s.replace(/[&"<>]/g, c => lookup[c]);
 }
 
 /** @deprecated Use escapeHtml for HTML contexts, encodeURIComponent for callback data */
