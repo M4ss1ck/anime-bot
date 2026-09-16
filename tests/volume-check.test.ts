@@ -153,6 +153,20 @@ describe('formatNewVolumesMessage', () => {
         expect(message).toContain('Ranking of Kings &lt;3')
         expect(message).toContain('A &amp; B')
     })
+
+    // Telegram's HTML parse mode only knows &lt; &gt; &amp; &quot;, so an escaped
+    // apostrophe reached the user as the literal "Cruelty&apos;s Antidote".
+    test('leaves apostrophes untouched, since Telegram has no &apos; entity', () => {
+        const message = formatNewVolumesMessage({
+            name: "Cruelty's Antidote",
+            trackedVolume: 1,
+            volumes: [{ position: 2, title: "Cruelty's Antidote Vol.2", releaseDate: undefined, released: false }],
+        })
+
+        expect(message).toContain("<b>Cruelty's Antidote</b>")
+        expect(message).toContain("Cruelty's Antidote Vol.2")
+        expect(message).not.toContain('&apos;')
+    })
 })
 
 describe('formatVolumeReport', () => {
